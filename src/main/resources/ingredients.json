@@ -1,0 +1,798 @@
+[
+  {
+    "name": "Beef sirloin",
+    "type": "MEAT"
+  },
+  {
+    "name": "Chicken breast",
+    "type": "MEAT"
+  },
+  {
+    "name": "Chicken thigh",
+    "type": "MEAT"
+  },
+  {
+    "name": "Pork loin",
+    "type": "MEAT"
+  },
+  {
+    "name": "Pork belly",
+    "type": "MEAT"
+  },
+  {
+    "name": "Bacon",
+    "type": "MEAT"
+  },
+  {
+    "name": "Ham",
+    "type": "MEAT"
+  },
+  {
+    "name": "Salmon",
+    "type": "MEAT"
+  },
+  {
+    "name": "Tuna",
+    "type": "MEAT"
+  },
+  {
+    "name": "Cod",
+    "type": "MEAT"
+  },
+  {
+    "name": "Haddock",
+    "type": "MEAT"
+  },
+  {
+    "name": "Shrimp",
+    "type": "MEAT"
+  },
+  {
+    "name": "Prawns",
+    "type": "MEAT"
+  },
+  {
+    "name": "Crab",
+    "type": "MEAT"
+  },
+  {
+    "name": "Lobster",
+    "type": "MEAT"
+  },
+  {
+    "name": "Mussels",
+    "type": "MEAT"
+  },
+  {
+    "name": "Clams",
+    "type": "MEAT"
+  },
+  {
+    "name": "Oysters",
+    "type": "MEAT"
+  },
+  {
+    "name": "Sardines",
+    "type": "MEAT"
+  },
+  {
+    "name": "Mackerel",
+    "type": "MEAT"
+  },
+  {
+    "name": "Trout",
+    "type": "MEAT"
+  },
+  {
+    "name": "Turkey",
+    "type": "MEAT"
+  },
+  {
+    "name": "Duck",
+    "type": "MEAT"
+  },
+  {
+    "name": "Lamb",
+    "type": "MEAT"
+  },
+  {
+    "name": "Veal",
+    "type": "MEAT"
+  },
+  {
+    "name": "Venison",
+    "type": "MEAT"
+  },
+  {
+    "name": "Rabbit",
+    "type": "MEAT"
+  },
+  {
+    "name": "Goat",
+    "type": "MEAT"
+  },
+  {
+    "name": "Ground beef",
+    "type": "MEAT"
+  },
+  {
+    "name": "Ground pork",
+    "type": "MEAT"
+  },
+  {
+    "name": "Sausage",
+    "type": "MEAT"
+  },
+  {
+    "name": "Chorizo",
+    "type": "MEAT"
+  },
+  {
+    "name": "Pepperoni",
+    "type": "MEAT"
+  },
+  {
+    "name": "Prosciutto",
+    "type": "MEAT"
+  },
+  {
+    "name": "Salami",
+    "type": "MEAT"
+  },
+  {
+    "name": "Anchovies",
+    "type": "MEAT"
+  },
+  {
+    "name": "Scallops",
+    "type": "MEAT"
+  },
+  {
+    "name": "Squid",
+    "type": "MEAT"
+  },
+  {
+    "name": "Octopus",
+    "type": "MEAT"
+  },
+  {
+    "name": "Catfish",
+    "type": "MEAT"
+  },
+  {
+    "name": "Tilapia",
+    "type": "MEAT"
+  },
+  {
+    "name": "Herring",
+    "type": "MEAT"
+  },
+  {
+    "name": "Quail",
+    "type": "MEAT"
+  },
+  {
+    "name": "Goose",
+    "type": "MEAT"
+  },
+  {
+    "name": "Bison",
+    "type": "MEAT"
+  },
+  {
+    "name": "Carrot",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Spinach",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Tomato",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Potato",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Onion",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Garlic",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Broccoli",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Cauliflower",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Cabbage",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Kale",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Lettuce",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Cucumber",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Zucchini",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Eggplant",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Bell pepper",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Chili pepper",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Mushroom",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Celery",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Asparagus",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Green beans",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Peas",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Corn",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Sweet potato",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Beetroot",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Radish",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Turnip",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Leek",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Shallot",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Ginger",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Pumpkin",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Butternut squash",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Artichoke",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Brussels sprouts",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Okra",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Fennel",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Parsnip",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Watercress",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Arugula",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Swiss chard",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Collard greens",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Bok choy",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Snap peas",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Edamame",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Avocado",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Apple",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Banana",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Orange",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Lemon",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Lime",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Grapefruit",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Strawberry",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Blueberry",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Raspberry",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Blackberry",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Mango",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Pineapple",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Papaya",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Kiwi",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Peach",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Pear",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Plum",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Cherry",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Grape",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Watermelon",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Cantaloupe",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Pomegranate",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Fig",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Date",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Apricot",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Coconut",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Basil",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Parsley",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Cilantro",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Mint",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Rosemary",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Thyme",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Oregano",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Sage",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Dill",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Chive",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Tarragon",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Bay leaf",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Scallion",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Jalapeno",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Wheat flour",
+    "type": "WHEAT"
+  },
+  {
+    "name": "All-purpose flour",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Bread flour",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Whole wheat flour",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Semolina",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Spaghetti",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Penne",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Macaroni",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Fusilli",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Lasagna sheets",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Couscous",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Bulgur",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Farro",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Udon noodles",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Egg noodles",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Pita bread",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Baguette",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Sourdough bread",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Croissant",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Bagel",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Pretzel",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Wheat bran",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Phyllo dough",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Puff pastry",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Wheat tortilla",
+    "type": "WHEAT"
+  },
+  {
+    "name": "Rice flour",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Brown rice flour",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Cornmeal",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Corn flour",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Coconut flour",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Quinoa",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Buckwheat",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Millet",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Sorghum",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Amaranth",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Teff",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Tapioca flour",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Potato starch",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Arrowroot",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Gluten-free oats",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Chickpea flour",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Rice noodles",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Corn tortilla",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Polenta",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "White rice",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Brown rice",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Basmati rice",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Jasmine rice",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Wild rice",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Grits",
+    "type": "GLUTEN_FREE_WHEAT"
+  },
+  {
+    "name": "Almond",
+    "type": "NUT"
+  },
+  {
+    "name": "Walnut",
+    "type": "NUT"
+  },
+  {
+    "name": "Peanut",
+    "type": "NUT"
+  },
+  {
+    "name": "Cashew",
+    "type": "NUT"
+  },
+  {
+    "name": "Pistachio",
+    "type": "NUT"
+  },
+  {
+    "name": "Hazelnut",
+    "type": "NUT"
+  },
+  {
+    "name": "Pecan",
+    "type": "NUT"
+  },
+  {
+    "name": "Macadamia",
+    "type": "NUT"
+  },
+  {
+    "name": "Brazil nut",
+    "type": "NUT"
+  },
+  {
+    "name": "Pine nut",
+    "type": "NUT"
+  },
+  {
+    "name": "Chestnut",
+    "type": "NUT"
+  },
+  {
+    "name": "Peanut butter",
+    "type": "NUT"
+  },
+  {
+    "name": "Almond butter",
+    "type": "NUT"
+  },
+  {
+    "name": "Sunflower seeds",
+    "type": "NUT"
+  },
+  {
+    "name": "Pumpkin seeds",
+    "type": "NUT"
+  },
+  {
+    "name": "Sesame seeds",
+    "type": "NUT"
+  },
+  {
+    "name": "Chia seeds",
+    "type": "NUT"
+  },
+  {
+    "name": "Flaxseed",
+    "type": "NUT"
+  },
+  {
+    "name": "Hemp seeds",
+    "type": "NUT"
+  },
+  {
+    "name": "Poppy seeds",
+    "type": "NUT"
+  }
+]

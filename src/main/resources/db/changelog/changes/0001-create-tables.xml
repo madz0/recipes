@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Initial schema for the recipes domain.
+
+        Tables map to the Spring Data JDBC aggregates:
+          dish              <- Dish        (aggregate root)
+          ingredient        <- Ingredient  (aggregate root)
+          recipe            <- Recipe      (aggregate root, references dish)
+          recipe_ingredient <- RecipeIngredient (element of the Recipe aggregate)
+
+        Enums (DietType, IngredientType, MeasurementUnit) are persisted as their
+        String name in VARCHAR columns. DietaryProfile is persisted as jsonb via
+        the converters in the config package.
+
+        Primary keys are generated from a per-table sequence via a
+        DEFAULT nextval('<table>_id_seq') on the id column. This is transparent
+        to Spring Data JDBC: the id stays null on the entity for new rows, the DB
+        assigns it, and Spring reads it back through the JDBC generated keys.
+    -->
+
+    <changeSet id="0001-create-dish" author="recipes">
+        <createSequence sequenceName="dish_id_seq" startValue="1" incrementBy="1"/>
+        <createTable tableName="dish">
+            <column name="id" type="BIGINT" defaultValueComputed="nextval('dish_id_seq')">
+                <constraints primaryKey="true" primaryKeyName="pk_dish" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0001-create-ingredient" author="recipes">
+        <createSequence sequenceName="ingredient_id_seq" startValue="1" incrementBy="1"/>
+        <createTable tableName="ingredient">
+            <column name="id" type="BIGINT" defaultValueComputed="nextval('ingredient_id_seq')">
+                <constraints primaryKey="true" primaryKeyName="pk_ingredient" nullable="false"/>
+            </column>
+            <column name="public_id" type="UUID">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_ingredient_public_id"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_ingredient_name"/>
+            </column>
+            <column name="type" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0001-create-recipe" author="recipes">
+        <createSequence sequenceName="recipe_id_seq" startValue="1" incrementBy="1"/>
+        <createTable tableName="recipe">
+            <column name="id" type="BIGINT" defaultValueComputed="nextval('recipe_id_seq')">
+                <constraints primaryKey="true" primaryKeyName="pk_recipe" nullable="false"/>
+            </column>
+            <column name="servings" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="instructions" type="TEXT"/>
+            <column name="dietary_profile_attributes" type="${json.type}"/>
+            <column name="dish" type="BIGINT"/>
+        </createTable>
+        <addForeignKeyConstraint
+                baseTableName="recipe" baseColumnNames="dish"
+                referencedTableName="dish" referencedColumnNames="id"
+                constraintName="fk_recipe_dish"/>
+    </changeSet>
+
+    <changeSet id="0001-create-recipe-ingredient" author="recipes">
+        <createTable tableName="recipe_ingredient">
+            <column name="recipe_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ingredient" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="NUMERIC(12, 3)"/>
+            <column name="unit" type="VARCHAR(20)"/>
+        </createTable>
+        <addForeignKeyConstraint
+                baseTableName="recipe_ingredient" baseColumnNames="recipe_id"
+                referencedTableName="recipe" referencedColumnNames="id"
+                constraintName="fk_recipe_ingredient_recipe"
+                onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+                baseTableName="recipe_ingredient" baseColumnNames="ingredient"
+                referencedTableName="ingredient" referencedColumnNames="id"
+                constraintName="fk_recipe_ingredient_ingredient"/>
+    </changeSet>
+
+</databaseChangeLog>

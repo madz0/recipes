@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Column type for DietaryProfile (persisted as JSON). Postgres uses jsonb;
+         the H2 test run overrides this to `json` via db.changelog-test-master.xml. -->
+    <property name="json.type" value="jsonb"/>
+
+    <include file="db/changelog/changes/0001-create-tables.xml"/>
+
+</databaseChangeLog>

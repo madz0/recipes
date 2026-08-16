@@ -1,0 +1,341 @@
+openapi: 3.1.0
+info:
+  title: Recipes — Ingredients API
+  description: >-
+    API-first contract for the shared ingredient catalog of the Recipes service.
+    Supports listing ingredients with pagination, creating, viewing, and deleting
+    a single ingredient.
+
+    Ingredients are identified by an opaque UUID surrogate (`id`). The internal
+    database primary key is never exposed, and the (mutable) `name` is a unique
+    business key used for duplicate detection — not an identifier.
+  version: 1.0.0
+  contact:
+    name: Recipes service
+
+servers:
+  - url: /
+    description: Same-origin (path is versioned under /api/v1)
+
+tags:
+  - name: Ingredients
+    description: Manage the shared ingredient catalog
+
+paths:
+  /api/v1/ingredients:
+    get:
+      tags: [Ingredients]
+      operationId: listIngredients
+      summary: List ingredients (paginated)
+      description: >-
+        Returns a page of ingredients ordered by name. Use `page` and `size` to
+        page through the catalog and the optional `type` filter to restrict the
+        result to a single ingredient type.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: type
+          in: query
+          required: false
+          description: Optional filter restricting results to a single ingredient type.
+          schema:
+            $ref: '#/components/schemas/IngredientType'
+      responses:
+        '200':
+          description: A page of ingredients.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngredientPage'
+              example:
+                content:
+                  - id: 018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1
+                    name: Chicken breast
+                    type: MEAT
+                  - id: 018f7a1d-2c44-7e02-9b71-6a90de12f3c4
+                    name: Carrot
+                    type: VEGETABLE
+                page: 0
+                size: 20
+                totalElements: 2
+                totalPages: 1
+                first: true
+                last: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [Ingredients]
+      operationId: createIngredient
+      summary: Create an ingredient
+      description: >-
+        Creates a new ingredient. The server assigns the `id`. Ingredient names
+        are unique — creating an ingredient with a name that already exists
+        returns `409 Conflict`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngredientCreateRequest'
+            example:
+              name: Basmati rice
+              type: WHEAT
+      responses:
+        '201':
+          description: The ingredient was created.
+          headers:
+            Location:
+              description: URI of the newly created ingredient.
+              schema:
+                type: string
+                format: uri-reference
+                examples:
+                  - /api/v1/ingredients/018f7a1e-77aa-7d55-b0c2-9e1f4b8a2d67
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingredient'
+              example:
+                id: 018f7a1e-77aa-7d55-b0c2-9e1f4b8a2d67
+                name: Basmati rice
+                type: WHEAT
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/v1/ingredients/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IngredientId'
+    get:
+      tags: [Ingredients]
+      operationId: getIngredient
+      summary: Get an ingredient by id
+      responses:
+        '200':
+          description: The requested ingredient.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingredient'
+              example:
+                id: 018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1
+                name: Chicken breast
+                type: MEAT
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Ingredients]
+      operationId: deleteIngredient
+      summary: Delete an ingredient by id
+      responses:
+        '204':
+          description: The ingredient was deleted (no content).
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    IngredientId:
+      name: id
+      in: path
+      required: true
+      description: Opaque UUID surrogate identifying the ingredient.
+      schema:
+        type: string
+        format: uuid
+      example: 018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: Zero-based page index.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      description: Number of items per page.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: The request was malformed or failed validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Bad Request
+            status: 400
+            detail: "'size' must be less than or equal to 100."
+            instance: /api/v1/ingredients
+    NotFound:
+      description: No ingredient exists with the given id.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Not Found
+            status: 404
+            detail: No ingredient found with id 018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1.
+            instance: /api/v1/ingredients/018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1
+    Conflict:
+      description: An ingredient with the same name already exists.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Conflict
+            status: 409
+            detail: An ingredient named 'Basmati rice' already exists.
+            instance: /api/v1/ingredients
+
+  schemas:
+    IngredientType:
+      type: string
+      description: Classifies an ingredient by its food type.
+      enum:
+        - MEAT
+        - VEGETABLE
+        - WHEAT
+        - GLUTEN_FREE_WHEAT
+        - NUT
+
+    Ingredient:
+      type: object
+      description: A reusable ingredient in the shared catalog.
+      required:
+        - id
+        - name
+        - type
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Opaque, server-assigned identifier.
+          examples:
+            - 018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Human-readable name. Unique across the catalog.
+          examples:
+            - Chicken breast
+        type:
+          $ref: '#/components/schemas/IngredientType'
+
+    IngredientCreateRequest:
+      type: object
+      description: Payload for creating a new ingredient.
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Human-readable name. Must be unique across the catalog.
+          examples:
+            - Basmati rice
+        type:
+          $ref: '#/components/schemas/IngredientType'
+      additionalProperties: false
+
+    IngredientPage:
+      type: object
+      description: A page of ingredients plus pagination metadata.
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+      properties:
+        content:
+          type: array
+          description: The ingredients on this page.
+          items:
+            $ref: '#/components/schemas/Ingredient'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Zero-based index of this page.
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Requested page size.
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total number of ingredients across all pages.
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Total number of pages available.
+        first:
+          type: boolean
+          description: Whether this is the first page.
+        last:
+          type: boolean
+          description: Whether this is the last page.
+
+    Problem:
+      type: object
+      description: >-
+        RFC 9457 (Problem Details for HTTP APIs) error representation.
+      properties:
+        type:
+          type: string
+          format: uri
+          description: A URI reference identifying the problem type.
+          default: about:blank
+          examples:
+            - about:blank
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type.
+          examples:
+            - Not Found
+        status:
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 599
+          description: The HTTP status code.
+          examples:
+            - 404
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence.
+          examples:
+            - No ingredient found with id 018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1.
+        instance:
+          type: string
+          format: uri-reference
+          description: URI reference identifying the specific occurrence.
+          examples:
+            - /api/v1/ingredients/018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1

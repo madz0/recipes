@@ -1,0 +1,14 @@
+# Redocly lint configuration for the Ingredients API contract.
+extends:
+  - recommended
+
+rules:
+  # The recipes service has no authentication layer yet (no Spring Security on
+  # the classpath), so the contract deliberately declares no security scheme.
+  # Turn this opinionated rule off rather than fabricate an auth mechanism that
+  # the service does not implement. Re-enable once auth is introduced.
+  security-defined: off
+
+  # The repository declares no license (no LICENSE file, none in pom.xml), so
+  # the contract omits one rather than asserting a license that does not exist.
+  info-license: off

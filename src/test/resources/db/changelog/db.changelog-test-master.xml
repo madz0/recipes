@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Test-only master changelog. It runs the exact production changelog against
+        whichever database the test is pointed at (H2 by default, real Postgres under
+        the `postgres` Maven profile), keeping the H2-only detail out of production.
+
+        Liquibase properties are first-definition-wins and honor the `dbms` attribute.
+        On H2 this override applies, so the jsonb column becomes `json` (a type H2
+        supports); the main master's jsonb default is then ignored. On Postgres this
+        line is skipped and the main master's jsonb wins.
+    -->
+    <property name="json.type" value="json" dbms="h2"/>
+
+    <include file="db/changelog/db.changelog-master.xml"/>
+
+</databaseChangeLog>

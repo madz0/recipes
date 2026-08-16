@@ -1,0 +1,10 @@
+version: '3'
+services:
+  postgres:
+    image: postgres:15.2
+    environment:
+      - POSTGRES_USER=bp
+      - POSTGRES_PASSWORD=bp
+      - POSTGRES_DB=bp
+    ports:
+      - 5432:5432
