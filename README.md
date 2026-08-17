@@ -5,10 +5,16 @@ on **PostgreSQL**, with **Liquibase** managing the schema.
 
 ## Domain
 
-The catalog is modelled as Spring Data JDBC aggregates (Java records) under
-`com.abnamro.recipe.model`: `Ingredient`, `Recipe`, and `RecipeIngredient`.
-`DietaryProfile` is stored as a Postgres `jsonb` column via the converters in
-`com.abnamro.recipe.config`.
+The domain is **influenced by Domain-Driven Design and modelled as aggregates** under
+`com.abnamro.recipe.model`: `Recipe` is the aggregate root that owns its `RecipeIngredient`
+members, `Ingredient` is a separate aggregate root (a shared catalog), and `DietaryProfile`
+is a value object. The three roots are Java records; `DietaryProfile` is an immutable value
+class stored as a Postgres `jsonb` column via the converters in `com.abnamro.recipe.config`.
+
+The persistence technology is **Spring Data JDBC** — Spring's DDD-oriented take on data
+access. Unlike a full ORM, it loads and saves whole aggregates through their roots with no
+lazy loading or managed entity graph, which keeps aggregate boundaries explicit and the
+mapping close to the SQL. It runs on **PostgreSQL**.
 
 ## Architecture
 
@@ -28,14 +34,15 @@ decisions, each with its rationale:
 - **MapStruct at the web boundary.** `RecipeMapper` / `IngredientMapper`
   (`componentModel = "spring"`) translate between the internal `RecipeDto`/domain records and
   the generated `api.model.*` DTOs, so mapping is compile-time and boilerplate-free.
-- **Spring Data JDBC aggregates as Java records** (`model/`): `Recipe` is the aggregate root
-  owning a `@MappedCollection` of `RecipeIngredient`; `Ingredient` is a separate root.
-  `DietaryProfile` is a value object persisted as JSON.
-- **Dialect-aware persistence.** `RecipeSearchRepository` and `config/JdbcConfig` each detect
-  Postgres vs H2 once from `DataSource` metadata: Postgres uses `jsonb` containment,
-  `tsvector`/GIN full-text search and a `PGobject` converter pair, while H2 falls back to
-  `LIKE` and a VARCHAR-JSON converter pair. One codebase runs the same suite on both DBs
-  (see [Tests](#tests)).
+- **DDD aggregates as Java records** (`model/`): `Recipe` is the aggregate root owning a
+  `@MappedCollection` of its `RecipeIngredient` members; `Ingredient` is a separate root; and
+  `DietaryProfile` is a value object persisted as JSON. Spring Data JDBC loads and stores each
+  aggregate whole through its root, keeping the aggregate boundaries explicit.
+- **PostgreSQL-native persistence.** The recipe search leans on Postgres directly:
+  `DietaryProfile` is stored in a `dietary_profile_attributes` `jsonb` column (via a `PGobject`
+  converter pair in `config/JdbcConfig`) and queried with `jsonb` containment (`@>`), and
+  instruction search uses a `tsvector`/GIN full-text index. `RecipeSearchRepository` builds this
+  SQL dynamically.
 - **Split read path for search.** The multi-filter recipe listing can't be a Spring Data
   derived query, so `RecipeSearchRepository` resolves the matching recipe **ids + total
   count** with dynamic SQL (`NamedParameterJdbcTemplate`) and `RecipeService` then
@@ -67,17 +74,21 @@ current scope.
 
 ### No separate dish resource
 
-The Recipe API (`src/main/resources/openapi/recipes-api.yaml`) intentionally has **no
-separate dish resource**. Each recipe carries its own mandatory `name`, and its dietary
-classification (`vegetarian` / `vegan` / `meat`, alongside the `gluten` / `wheat` / `nut`
-allergen flags) is **derived from the selected ingredients** rather than stored elsewhere;
-`vegan` is stricter than `vegetarian` — it also excludes `DAIRY` and `EGG` ingredients.
-For the current requirements — creating recipes and filtering them, including by whether a
-recipe is vegetarian — a dedicated `Dish` entity would add no information: the only
-dish-level attribute needed is derivable from the ingredients, and a dish name would
-merely duplicate the recipe name. If genuinely dish-level attributes are ever needed (e.g.
-grouping several recipes under one "Lasagne" dish), a `Dish` entity with a one-to-many
-relationship to `Recipe` could be introduced then.
+One natural way to model this domain is to introduce a separate **`Dish`** entity that owns
+many `Recipe`s (a one-to-many) — e.g. several recipes grouped under one "Lasagne" dish. This
+service **deliberately does not** take that route: for simplicity, and because the problem
+definition asks only for recipes and filtering over them, the Recipe API
+(`src/main/resources/openapi/recipes-api.yaml`) models recipes directly with **no separate
+dish resource**.
+
+Each recipe carries its own mandatory `name`, and its dietary classification
+(`vegetarian` / `vegan` / `meat`, alongside the `gluten` / `wheat` / `nut` allergen flags) is
+**derived from the selected ingredients** rather than stored elsewhere; `vegan` is stricter
+than `vegetarian` — it also excludes `DAIRY` and `EGG` ingredients. For the current
+requirements a dedicated `Dish` entity would add no information: the only dish-level attribute
+needed is derivable from the ingredients, and a dish name would merely duplicate the recipe
+name. If genuinely dish-level attributes are ever needed, the `Dish` → `Recipe` one-to-many
+above can be introduced then.
 
 ## Recipes API
 
@@ -88,18 +99,35 @@ Ingredients slice: a generated `RecipesApi` interface implemented by a hand-writ
 
 - **Derived dietary profile.** On create, the server resolves each selected ingredient
   against the catalog (an unknown ingredient id is a `400`) and derives the six-flag
-  `DietaryProfile` from the ingredient types. A single `DietaryFlag` enum is the source of
-  truth: `vegetarian` = no `MEAT`; `vegan` = no `MEAT`/`DAIRY`/`EGG`; `meat` = any `MEAT`;
-  `wheat` = any `WHEAT`/`GLUTEN_FREE_WHEAT`; `gluten` = any `WHEAT`; `nut` = any `NUT`. The
-  client never supplies it.
-- **Filtering.** The list endpoint combines `dietProfiles`, `servings`, `includeIngredients`
-  (contains **all**), `excludeIngredients` (contains **none**), and `instructionsContains`.
-  `dietProfiles` is a comma-separated list of dietary flags, each optionally negated with a
-  leading `-` (e.g. `?dietProfiles=vegan,-gluten` = vegan **and** gluten-free); a flag given
-  with both signs (`gluten,-gluten`) imposes no restriction. Because each flag is defined by
-  its ingredient types, `dietProfiles=vegetarian` also returns vegan recipes. The dynamic SQL
-  lives in `RecipeSearchRepository` (built with `NamedParameterJdbcTemplate`, since the
-  combination can't be a derived query method).
+  `DietaryProfile` from the ingredient types. The client never supplies it. Every flag is a
+  **rule over `IngredientType`s** defined once in the `DietaryFlag` enum — the single source
+  of truth for derivation, storage, and search, so there are **no hard-coded dietary
+  conditionals scattered through the code**. The rules: `vegetarian` = no `MEAT`; `vegan` = no
+  `MEAT`/`DAIRY`/`EGG`; `meat` = any `MEAT`; `wheat` = any `WHEAT`/`GLUTEN_FREE_WHEAT`;
+  `gluten` = any `WHEAT`; `nut` = any `NUT`.
+- **Filtering.** The list endpoint AND-combines four filters: `dietProfiles`, `servings`,
+  `ingredients`, and `instructionsContains`.
+  - `dietProfiles` — a comma-separated list of dietary flags, each optionally negated with a
+    leading `-` (e.g. `?dietProfiles=vegan,-gluten` = vegan **and** gluten-free); a flag given
+    with both signs (`gluten,-gluten`) cancels out and imposes no restriction.
+  - `ingredients` — a single comma-separated list of ingredient names; a bare name must be
+    present ("contains **all** of these") and a `-`-prefixed name must be absent ("contains
+    **none** of these"), so include/exclude are expressed in one parameter (the server splits
+    them internally).
+  - `servings` — exact match; `instructionsContains` — full-text search (below).
+
+  The dynamic SQL lives in `RecipeSearchRepository` (built with `NamedParameterJdbcTemplate`,
+  since the combination can't be a derived query method).
+- **`vegetarian` automatically includes vegan recipes — with no special-casing.** A
+  `?dietProfiles=vegetarian` query returns vegan recipes too, treating vegan as a stricter
+  vegetarian. This is **not a hard-coded `vegan ⇒ vegetarian` rule**; it falls out of the
+  ingredient-type rules above. Each recipe's derived profile is stored as a flat `jsonb`
+  document with **every flag present as an explicit boolean**, e.g.
+  `{"vegetarian":true,"vegan":true,"meat":false,...}`. A `vegetarian` filter is just the
+  containment predicate `dietary_profile_attributes @> '{"vegetarian":true}'`. Because a vegan
+  recipe excludes `MEAT`/`DAIRY`/`EGG` (a superset of vegetarian's `MEAT`), its stored profile
+  already carries `"vegetarian":true`, so containment matches it — the query never mentions
+  vegan.
 
 ### Text search on instructions
 
@@ -107,13 +135,9 @@ Ingredients slice: a generated `RecipesApi` interface implemented by a hand-writ
 generated `search_vector tsvector` column (`to_tsvector('english', instructions)`) backed
 by a **GIN index**, and the query matches with `search_vector @@ plainto_tsquery(...)`.
 This gives fast, word/stem-based matching (`roast` matches `roasted`) that scales — at the
-cost of substring semantics (`oven` does **not** match `ovenware`; see the contract).
-
-Because `tsvector`/GIN are Postgres-only, the generated column and index live in a
-**Postgres-only Liquibase changeSet** (`dbms="postgresql"`), so the Docker-free H2 test run
-skips them entirely. On H2, `RecipeSearchRepository` **falls back** to a portable
-case-insensitive `LIKE`, detected once from the datasource metadata — so the same test
-suite passes on both databases, and real full-text search is exercised under `-Ppostgres`.
+cost of substring semantics (`oven` does **not** match `ovenware`; see the contract). Because
+`tsvector`/GIN are Postgres-only, the generated column and index live in a Postgres-only
+Liquibase changeSet (`dbms="postgresql"`).
 
 ## Database & indexing
 
@@ -149,10 +173,6 @@ The choices behind those definitions:
 - **Why no `pg_trgm` / trigram / GiST.** Substring or fuzzy matching is not a requirement:
   instruction search is intentionally word/stem-based full-text (hence `oven` does not match
   `ovenware`), so no trigram extension or GiST index is introduced.
-- **Postgres-only, H2-skipped.** Both GIN changeSets are `dbms="postgresql"`, so the
-  Docker-free H2 test run skips them and the dialect-aware `RecipeSearchRepository` falls
-  back to `LIKE`; the real full-text and jsonb indexes are exercised under `-Ppostgres`
-  (see [Tests](#tests)).
 
 ## Security
 
@@ -259,9 +279,10 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--recipe.bootstrap.enabled=true
 There is a single integration test (`IngredientBootstrapIT`). Being a full
 `@SpringBootTest`, it is named `*IT` and runs under the **Failsafe** plugin in the
 `integration-test`/`verify` phases — so `mvn verify` (and `mvn install`) run it,
-while `mvn test` is reserved for unit tests (there are none yet). The **same test**
-runs against either database — the choice is made by a Maven profile, not by the
-test. The full Liquibase changelog is applied in both cases.
+while `mvn test` is reserved for unit tests (there are none yet).
+
+The **same test** runs against **both databases** — the choice is made by a Maven profile,
+not by the test, and the full Liquibase changelog is applied in both cases:
 
 - **Default — in-memory H2** (PostgreSQL mode), fast and **no Docker required**:
 
@@ -275,6 +296,12 @@ test. The full Liquibase changelog is applied in both cases.
   ```sh
   mvn verify -Ppostgres
   ```
+
+Only the test run ever touches H2; PostgreSQL is the sole runtime database. So that the H2 run
+can work without Docker, `RecipeSearchRepository` detects the dialect once from the `DataSource`
+and, on H2, **falls back** to a portable case-insensitive `LIKE` in place of the Postgres
+`tsvector`/`jsonb` search — the Postgres-only full-text and containment features are still
+exercised for real under `-Ppostgres`.
 
 ### Testcontainers on Colima
 
