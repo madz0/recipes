@@ -9,35 +9,22 @@
         Initial schema for the recipes domain.
 
         Tables map to the Spring Data JDBC aggregates:
-          dish              <- Dish        (aggregate root)
           ingredient        <- Ingredient  (aggregate root)
-          recipe            <- Recipe      (aggregate root, references dish)
+          recipe            <- Recipe      (aggregate root)
           recipe_ingredient <- RecipeIngredient (element of the Recipe aggregate)
 
-        Enums (DietType, IngredientType, MeasurementUnit) are persisted as their
-        String name in VARCHAR columns. DietaryProfile is persisted as jsonb via
-        the converters in the config package.
+        Enums (IngredientType, MeasurementUnit) are persisted as their String name
+        in VARCHAR columns. DietaryProfile is persisted as jsonb via the converters
+        in the config package.
 
         Primary keys are generated from a per-table sequence via a
         DEFAULT nextval('<table>_id_seq') on the id column. This is transparent
         to Spring Data JDBC: the id stays null on the entity for new rows, the DB
         assigns it, and Spring reads it back through the JDBC generated keys.
-    -->
 
-    <changeSet id="0001-create-dish" author="recipes">
-        <createSequence sequenceName="dish_id_seq" startValue="1" incrementBy="1"/>
-        <createTable tableName="dish">
-            <column name="id" type="BIGINT" defaultValueComputed="nextval('dish_id_seq')">
-                <constraints primaryKey="true" primaryKeyName="pk_dish" nullable="false"/>
-            </column>
-            <column name="name" type="VARCHAR(255)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="type" type="VARCHAR(20)">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-    </changeSet>
+        A recipe carries its own name and an opaque public_id UUID surrogate (the
+        API identity); there is no separate dish resource.
+    -->
 
     <changeSet id="0001-create-ingredient" author="recipes">
         <createSequence sequenceName="ingredient_id_seq" startValue="1" incrementBy="1"/>
@@ -63,17 +50,49 @@
             <column name="id" type="BIGINT" defaultValueComputed="nextval('recipe_id_seq')">
                 <constraints primaryKey="true" primaryKeyName="pk_recipe" nullable="false"/>
             </column>
+            <column name="public_id" type="UUID">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_recipe_public_id"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
             <column name="servings" type="INT">
                 <constraints nullable="false"/>
             </column>
             <column name="instructions" type="TEXT"/>
             <column name="dietary_profile_attributes" type="${json.type}"/>
-            <column name="dish" type="BIGINT"/>
         </createTable>
-        <addForeignKeyConstraint
-                baseTableName="recipe" baseColumnNames="dish"
-                referencedTableName="dish" referencedColumnNames="id"
-                constraintName="fk_recipe_dish"/>
+    </changeSet>
+
+    <!--
+        PostgreSQL full-text search for the `instructionsContains` filter.
+
+        `search_vector` is a STORED generated column derived from `instructions`,
+        indexed with a GIN index so word/stem-based full-text queries
+        (search_vector @@ plainto_tsquery('english', :q)) stay fast at scale.
+
+        to_tsvector, the built-in `english` configuration, and GIN indexes are all
+        core Postgres (available in the postgres:15.2 compose image and the
+        jdbc:tc:postgresql:15.2 Testcontainers image) — no CREATE EXTENSION needed.
+
+        dbms="postgresql" means H2 skips this changeSet entirely, so the Docker-free
+        H2 test run is unaffected; recipe search falls back to a portable
+        LOWER(...) LIKE query on H2 (see RecipeSearchRepository). Spring Data JDBC
+        never touches `search_vector`: it is not mapped on the Recipe aggregate, and
+        generated columns are read-only.
+    -->
+    <changeSet id="0001-recipe-search-vector" author="recipes" dbms="postgresql">
+        <sql>
+            ALTER TABLE recipe ADD COLUMN search_vector tsvector
+                GENERATED ALWAYS AS (to_tsvector('english', coalesce(instructions, ''))) STORED
+        </sql>
+        <sql>
+            CREATE INDEX idx_recipe_search_vector ON recipe USING gin (search_vector)
+        </sql>
+        <rollback>
+            <sql>DROP INDEX IF EXISTS idx_recipe_search_vector</sql>
+            <sql>ALTER TABLE recipe DROP COLUMN IF EXISTS search_vector</sql>
+        </rollback>
     </changeSet>
 
     <changeSet id="0001-create-recipe-ingredient" author="recipes">

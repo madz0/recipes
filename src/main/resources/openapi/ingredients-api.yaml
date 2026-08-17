@@ -215,6 +215,8 @@ components:
         - WHEAT
         - GLUTEN_FREE_WHEAT
         - NUT
+        - DAIRY
+        - EGG
 
     Ingredient:
       type: object

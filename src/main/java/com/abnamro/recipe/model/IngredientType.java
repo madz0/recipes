@@ -8,5 +8,7 @@ public enum IngredientType {
     VEGETABLE,
     WHEAT,
     GLUTEN_FREE_WHEAT,
-    NUT
+    NUT,
+    DAIRY,
+    EGG
 }

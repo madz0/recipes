@@ -794,5 +794,49 @@
   {
     "name": "Poppy seeds",
     "type": "NUT"
+  },
+  {
+    "name": "Kohlrabi",
+    "type": "VEGETABLE"
+  },
+  {
+    "name": "Milk",
+    "type": "DAIRY"
+  },
+  {
+    "name": "Butter",
+    "type": "DAIRY"
+  },
+  {
+    "name": "Cheddar cheese",
+    "type": "DAIRY"
+  },
+  {
+    "name": "Mozzarella",
+    "type": "DAIRY"
+  },
+  {
+    "name": "Parmesan",
+    "type": "DAIRY"
+  },
+  {
+    "name": "Yogurt",
+    "type": "DAIRY"
+  },
+  {
+    "name": "Cream",
+    "type": "DAIRY"
+  },
+  {
+    "name": "Egg",
+    "type": "EGG"
+  },
+  {
+    "name": "Egg white",
+    "type": "EGG"
+  },
+  {
+    "name": "Egg yolk",
+    "type": "EGG"
   }
 ]

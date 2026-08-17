@@ -29,6 +29,13 @@ public interface IngredientRepository
     /** Looks up an ingredient by its public UUID surrogate (the API identity). */
     Optional<Ingredient> findByPublicId(UUID publicId);
 
+    /**
+     * Loads every ingredient whose public id is in the given set, in a single
+     * query. Used when creating a recipe to resolve all selected ingredients at
+     * once instead of one lookup per selection.
+     */
+    List<Ingredient> findByPublicIdIn(Collection<UUID> publicIds);
+
     /** A page of ingredients restricted to a single type, for the {@code type} filter. */
     Page<Ingredient> findByType(IngredientType type, Pageable pageable);
 

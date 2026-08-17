@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,6 +31,7 @@ import com.abnamro.recipe.repository.IngredientRepository;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@DisplayName("Ingredient catalog bootstrap — integration tests")
 class IngredientBootstrapIT {
 
     @Autowired
@@ -38,6 +40,14 @@ class IngredientBootstrapIT {
     @Autowired
     private IngredientBootstrapRunner runner;
 
+    /**
+     * Given the application has started with the {@code test} profile (which seeds
+     * the catalog), when the catalog is inspected then it holds the full seed set
+     * (≥199 ingredients); and when the bootstrap runner is invoked a second time
+     * then it is idempotent — nothing is inserted or updated, every existing row is
+     * skipped, and the total count is unchanged.
+     */
+    @DisplayName("Catalog is seeded on startup and re-running the bootstrap is idempotent")
     @Test
     void seedsCatalogOnStartupAndIsIdempotent() {
         long seeded = ingredientRepository.count();
@@ -51,6 +61,12 @@ class IngredientBootstrapIT {
         assertThat(ingredientRepository.count()).isEqualTo(seeded);
     }
 
+    /**
+     * Given an ingredient name that already exists in the catalog, when a new
+     * ingredient is saved with that same name then the database's unique-name
+     * constraint rejects the insert and a {@link DataAccessException} is thrown.
+     */
+    @DisplayName("Unique-name constraint rejects a duplicate ingredient name")
     @Test
     void nameUniqueConstraintIsEnforced() {
         Ingredient existing = ingredientRepository.findByNameIn(List.of("Beef sirloin")).get(0);

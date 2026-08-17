@@ -11,11 +11,13 @@
         the `postgres` Maven profile), keeping the H2-only detail out of production.
 
         Liquibase properties are first-definition-wins and honor the `dbms` attribute.
-        On H2 this override applies, so the jsonb column becomes `json` (a type H2
-        supports); the main master's jsonb default is then ignored. On Postgres this
-        line is skipped and the main master's jsonb wins.
+        On H2 this override applies, so the DietaryProfile JSON column becomes a plain
+        VARCHAR: H2 has no Postgres jsonb type, and the dialect-aware converters in
+        JdbcConfig store the profile as a JSON string on non-Postgres databases. The
+        main master's jsonb default is then ignored. On Postgres this line is skipped
+        and the main master's jsonb wins.
     -->
-    <property name="json.type" value="json" dbms="h2"/>
+    <property name="json.type" value="VARCHAR(1024)" dbms="h2"/>
 
     <include file="db/changelog/db.changelog-master.xml"/>
 

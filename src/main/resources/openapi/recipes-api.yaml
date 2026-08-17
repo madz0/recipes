@@ -1,0 +1,616 @@
+openapi: 3.1.0
+info:
+  title: Recipes — Recipe API
+  description: >-
+    API-first contract for managing recipes in the Recipes service. Supports
+    creating a recipe, fetching a single recipe, and listing/filtering recipes.
+
+    A recipe is identified by an opaque UUID surrogate (`id`); the internal
+    database primary key is never exposed. Each recipe carries its own mandatory
+    `name` — there is no separate "dish" resource, so the recipe name doubles as
+    the dish name (see the README "Scope & assumptions" note for the rationale).
+
+    A recipe selects one or more ingredients from the shared ingredient catalog
+    (see the Ingredients API), each referenced by its ingredient `id`. The
+    recipe's `dietaryProfile` is **derived from those ingredients** by the server
+    and is never supplied by the client.
+  version: 1.0.0
+  contact:
+    name: Recipes service
+
+servers:
+  - url: /
+    description: Same-origin (path is versioned under /api/v1)
+
+tags:
+  - name: Recipes
+    description: Create, view, and filter recipes
+
+paths:
+  /api/v1/recipes:
+    get:
+      tags: [Recipes]
+      operationId: listRecipes
+      summary: List recipes (paginated, filterable)
+      description: >-
+        Returns a page of recipes ordered by name. All filters are optional and
+        combined with AND. For example:
+
+        - `?dietProfiles=vegan` — all vegan recipes.
+
+        - `?dietProfiles=vegetarian,-gluten` — vegetarian **and** gluten-free.
+
+        - `?servings=4&includeIngredients=Potatoes` — recipes that serve 4 and
+          include "Potatoes".
+
+        - `?excludeIngredients=Salmon&instructionsContains=oven` — recipes that
+          do not use "Salmon" and mention "oven" in their instructions.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: dietProfiles
+          in: query
+          required: false
+          description: >-
+            Restrict by dietary attributes. Comma-separated list of dietary flags,
+            each optionally negated with a leading `-`: a bare flag requires it to
+            be **true**, `-flag` requires it to be **false**. Allowed flags:
+            `vegetarian`, `vegan`, `meat`, `gluten`, `wheat`, `nut` (the fields of
+            `DietaryProfile`). For example `?dietProfiles=vegan,-gluten` means vegan
+            and gluten-free; `-meat` is equivalent to `vegetarian`; `-nut` means
+            nut-free.
+
+
+            The flags are AND-combined with each other and with the other filters.
+            Because flags are defined by ingredient content, subsets follow
+            naturally — `dietProfiles=vegetarian` also returns vegan recipes. Listing
+            the **same** flag with both signs (e.g. `gluten,-gluten`) cancels out and
+            imposes no restriction on that flag. An unknown flag token is a `400`.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              minLength: 1
+              maxLength: 32
+          example: [vegan, "-gluten"]
+        - name: servings
+          in: query
+          required: false
+          description: Restrict to recipes with exactly this number of servings.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+          example: 4
+        - name: includeIngredients
+          in: query
+          required: false
+          description: >-
+            Restrict to recipes that contain **all** of the given ingredients,
+            matched by ingredient name (case-insensitive, exact match). Repeat
+            the parameter to require several ingredients.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              minLength: 1
+              maxLength: 255
+          example: [Potatoes]
+        - name: excludeIngredients
+          in: query
+          required: false
+          description: >-
+            Restrict to recipes that contain **none** of the given ingredients,
+            matched by ingredient name (case-insensitive, exact match). Repeat
+            the parameter to exclude several ingredients.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              minLength: 1
+              maxLength: 255
+          example: [Salmon]
+        - name: instructionsContains
+          in: query
+          required: false
+          description: >-
+            Restrict to recipes whose instructions contain the given word(s).
+            This is a **full-text search**: matching is case-insensitive and
+            word/stem based (e.g. `roast` also matches `roasted`), not a raw
+            substring match — so a fragment inside a larger word (e.g. `oven`
+            within `ovenware`) will not match. Multiple words are combined so all
+            must be present.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+          example: oven
+      responses:
+        '200':
+          description: A page of recipes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipePage'
+              example:
+                content:
+                  - id: 018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f
+                    name: Oven-roasted vegetable traybake
+                    servings: 4
+                    instructions: >-
+                      Chop the vegetables, toss with oil, and roast in the oven
+                      at 200°C for 35 minutes.
+                    ingredients:
+                      - ingredientId: 018f7a1d-2c44-7e02-9b71-6a90de12f3c4
+                        name: Carrot
+                        quantity: 300
+                        unit: GRAMS
+                      - ingredientId: 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78
+                        name: Potatoes
+                        quantity: 500
+                        unit: GRAMS
+                    dietaryProfile:
+                      vegetarian: true
+                      vegan: true
+                      meat: false
+                      gluten: false
+                      wheat: false
+                      nut: false
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+                first: true
+                last: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [Recipes]
+      operationId: createRecipe
+      summary: Create a recipe
+      description: >-
+        Creates a new recipe. The server assigns the `id` and derives the
+        `dietaryProfile` from the selected ingredients. Every field is
+        mandatory, and at least one ingredient must be selected. Each selected
+        ingredient must reference an existing ingredient by its `id`; an unknown
+        ingredient id results in `400 Bad Request`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeCreateRequest'
+            example:
+              name: Oven-roasted vegetable traybake
+              servings: 4
+              instructions: >-
+                Chop the vegetables, toss with oil, and roast in the oven at
+                200°C for 35 minutes.
+              ingredients:
+                - ingredientId: 018f7a1d-2c44-7e02-9b71-6a90de12f3c4
+                  quantity: 300
+                  unit: GRAMS
+                - ingredientId: 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78
+                  quantity: 500
+                  unit: GRAMS
+      responses:
+        '201':
+          description: The recipe was created.
+          headers:
+            Location:
+              description: URI of the newly created recipe.
+              schema:
+                type: string
+                format: uri-reference
+                examples:
+                  - /api/v1/recipes/018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+              example:
+                id: 018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f
+                name: Oven-roasted vegetable traybake
+                servings: 4
+                instructions: >-
+                  Chop the vegetables, toss with oil, and roast in the oven at
+                  200°C for 35 minutes.
+                ingredients:
+                  - ingredientId: 018f7a1d-2c44-7e02-9b71-6a90de12f3c4
+                    name: Carrot
+                    quantity: 300
+                    unit: GRAMS
+                  - ingredientId: 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78
+                    name: Potatoes
+                    quantity: 500
+                    unit: GRAMS
+                dietaryProfile:
+                  vegetarian: true
+                  vegan: true
+                  meat: false
+                  gluten: false
+                  wheat: false
+                  nut: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/recipes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/RecipeId'
+    get:
+      tags: [Recipes]
+      operationId: getRecipe
+      summary: Get a recipe by id
+      responses:
+        '200':
+          description: The requested recipe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+              example:
+                id: 018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f
+                name: Oven-roasted vegetable traybake
+                servings: 4
+                instructions: >-
+                  Chop the vegetables, toss with oil, and roast in the oven at
+                  200°C for 35 minutes.
+                ingredients:
+                  - ingredientId: 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78
+                    name: Potatoes
+                    quantity: 500
+                    unit: GRAMS
+                dietaryProfile:
+                  vegetarian: true
+                  vegan: true
+                  meat: false
+                  gluten: false
+                  wheat: false
+                  nut: false
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    RecipeId:
+      name: id
+      in: path
+      required: true
+      description: Opaque UUID surrogate identifying the recipe.
+      schema:
+        type: string
+        format: uuid
+      example: 018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: Zero-based page index.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      description: Number of items per page.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: The request was malformed or failed validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Bad Request
+            status: 400
+            detail: "No ingredient found with id 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78."
+            instance: /api/v1/recipes
+    NotFound:
+      description: No recipe exists with the given id.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Not Found
+            status: 404
+            detail: No recipe found with id 018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f.
+            instance: /api/v1/recipes/018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f
+
+  schemas:
+    MeasurementUnit:
+      type: string
+      description: Unit for the quantity of an ingredient used in a recipe.
+      enum:
+        - GRAMS
+        - KILOGRAMS
+        - MILLILITERS
+        - LITERS
+        - PIECES
+        - TEASPOONS
+        - TABLESPOONS
+        - CUPS
+
+    DietaryProfile:
+      type: object
+      description: >-
+        Dietary attributes of a recipe, **derived by the server** from the
+        selected ingredients — never supplied by the client. The diet flags are
+        related: `meat = !vegetarian`, and `vegan ⇒ vegetarian`.
+
+        Note: under the current `IngredientType` taxonomy there is no dairy/egg
+        category, so `vegan` is derived identically to `vegetarian` (absence of
+        any `MEAT` ingredient). Distinguishing true vegan recipes would require
+        extending the ingredient taxonomy.
+      required:
+        - vegetarian
+        - vegan
+        - meat
+        - gluten
+        - wheat
+        - nut
+      properties:
+        vegetarian:
+          type: boolean
+          readOnly: true
+          description: True when the recipe uses no ingredient of type `MEAT`.
+        vegan:
+          type: boolean
+          readOnly: true
+          description: >-
+            True when the recipe is vegan. Derived identically to `vegetarian`
+            with the current ingredient taxonomy (see schema description).
+        meat:
+          type: boolean
+          readOnly: true
+          description: True when the recipe uses at least one ingredient of type `MEAT`.
+        gluten:
+          type: boolean
+          readOnly: true
+          description: True when the recipe contains gluten.
+        wheat:
+          type: boolean
+          readOnly: true
+          description: True when the recipe contains wheat.
+        nut:
+          type: boolean
+          readOnly: true
+          description: True when the recipe contains nuts.
+
+    RecipeIngredientSelection:
+      type: object
+      description: >-
+        A single ingredient chosen for a recipe, referencing an existing
+        ingredient from the shared catalog by its `id`.
+      required:
+        - ingredientId
+      properties:
+        ingredientId:
+          type: string
+          format: uuid
+          description: The `id` of an existing ingredient in the shared catalog.
+          examples:
+            - 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78
+        quantity:
+          type: number
+          minimum: 0
+          description: Amount of the ingredient, expressed in `unit`.
+          examples:
+            - 500
+        unit:
+          $ref: '#/components/schemas/MeasurementUnit'
+      additionalProperties: false
+
+    RecipeIngredient:
+      type: object
+      description: An ingredient used by a recipe, with its quantity and unit.
+      required:
+        - ingredientId
+        - name
+      properties:
+        ingredientId:
+          type: string
+          format: uuid
+          description: The `id` of the referenced ingredient.
+          examples:
+            - 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78
+        name:
+          type: string
+          readOnly: true
+          description: Name of the referenced ingredient, for display.
+          examples:
+            - Potatoes
+        quantity:
+          type: number
+          minimum: 0
+          description: Amount of the ingredient, expressed in `unit`.
+          examples:
+            - 500
+        unit:
+          $ref: '#/components/schemas/MeasurementUnit'
+
+    RecipeCreateRequest:
+      type: object
+      description: >-
+        Payload for creating a new recipe. Every field is mandatory and at least
+        one ingredient must be selected. The `dietaryProfile` is not accepted
+        here — it is derived from the selected ingredients.
+      required:
+        - name
+        - servings
+        - instructions
+        - ingredients
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Human-readable recipe name (also used as the dish name).
+          examples:
+            - Oven-roasted vegetable traybake
+        servings:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Number of people the recipe serves.
+          examples:
+            - 4
+        instructions:
+          type: string
+          minLength: 1
+          description: Free-text preparation instructions.
+          examples:
+            - Chop the vegetables, toss with oil, and roast in the oven at 200°C for 35 minutes.
+        ingredients:
+          type: array
+          minItems: 1
+          description: The ingredients selected for this recipe.
+          items:
+            $ref: '#/components/schemas/RecipeIngredientSelection'
+      additionalProperties: false
+
+    Recipe:
+      type: object
+      description: A recipe, including its derived dietary profile.
+      required:
+        - id
+        - name
+        - servings
+        - instructions
+        - ingredients
+        - dietaryProfile
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Opaque, server-assigned identifier.
+          examples:
+            - 018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Human-readable recipe name (also used as the dish name).
+          examples:
+            - Oven-roasted vegetable traybake
+        servings:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Number of people the recipe serves.
+          examples:
+            - 4
+        instructions:
+          type: string
+          minLength: 1
+          description: Free-text preparation instructions.
+          examples:
+            - Chop the vegetables, toss with oil, and roast in the oven at 200°C for 35 minutes.
+        ingredients:
+          type: array
+          minItems: 1
+          description: The ingredients used by this recipe.
+          items:
+            $ref: '#/components/schemas/RecipeIngredient'
+        dietaryProfile:
+          $ref: '#/components/schemas/DietaryProfile'
+
+    RecipePage:
+      type: object
+      description: A page of recipes plus pagination metadata.
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - first
+        - last
+      properties:
+        content:
+          type: array
+          description: The recipes on this page.
+          items:
+            $ref: '#/components/schemas/Recipe'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Zero-based index of this page.
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Requested page size.
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total number of recipes across all pages.
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Total number of pages available.
+        first:
+          type: boolean
+          description: Whether this is the first page.
+        last:
+          type: boolean
+          description: Whether this is the last page.
+
+    Problem:
+      type: object
+      description: >-
+        RFC 9457 (Problem Details for HTTP APIs) error representation.
+      properties:
+        type:
+          type: string
+          format: uri
+          description: A URI reference identifying the problem type.
+          default: about:blank
+          examples:
+            - about:blank
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type.
+          examples:
+            - Not Found
+        status:
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 599
+          description: The HTTP status code.
+          examples:
+            - 404
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence.
+          examples:
+            - No recipe found with id 018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f.
+        instance:
+          type: string
+          format: uri-reference
+          description: URI reference identifying the specific occurrence.
+          examples:
+            - /api/v1/recipes/018f8b20-1a2b-7c3d-9e4f-5a6b7c8d9e0f
