@@ -55,7 +55,7 @@ public class RecipeSearchRepository {
         String where = buildWhere(criteria, params);
 
         Long total = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM recipe r" + where, params, Long.class);
+                "SELECT COUNT(*) FROM recipe r%s".formatted(where), params, Long.class);
         long totalElements = total == null ? 0L : total;
 
         if (totalElements == 0) {
@@ -64,9 +64,9 @@ public class RecipeSearchRepository {
 
         params.addValue("limit", pageable.getPageSize());
         params.addValue("offset", pageable.getOffset());
-        List<Long> ids = jdbc.queryForList(
-                "SELECT r.id FROM recipe r" + where
-                        + " ORDER BY LOWER(r.name), r.id LIMIT :limit OFFSET :offset",
+        List<Long> ids = jdbc.queryForList("""
+                SELECT r.id FROM recipe r%s
+                ORDER BY LOWER(r.name), r.id LIMIT :limit OFFSET :offset""".formatted(where),
                 params, Long.class);
 
         return new Result(ids, totalElements);
@@ -82,12 +82,12 @@ public class RecipeSearchRepository {
                 // jsonb containment against the denormalized profile column. Every flag key
                 // is always present with an explicit boolean, so {"meat":false} containment
                 // correctly matches recipes whose meat flag is false — no negation needed.
-                predicates.add("r.dietary_profile_attributes @> CAST(:" + paramName + " AS jsonb)");
+                predicates.add("r.dietary_profile_attributes @> CAST(:%s AS jsonb)".formatted(paramName));
                 params.addValue(paramName, "{\"" + flag.token() + "\":" + wantTrue + "}");
             } else {
                 // H2 stores the profile as compact JSON text (explicit booleans, no
                 // whitespace), so a deterministic substring match expresses flag == wantTrue.
-                predicates.add("r.dietary_profile_attributes LIKE :" + paramName);
+                predicates.add("r.dietary_profile_attributes LIKE :%s".formatted(paramName));
                 params.addValue(paramName, "%\"" + flag.token() + "\":" + wantTrue + "%");
             }
         });
@@ -99,20 +99,22 @@ public class RecipeSearchRepository {
 
         List<String> include = lowerCasedDistinct(criteria.includeIngredients());
         if (!include.isEmpty()) {
-            predicates.add("r.id IN (SELECT ri.recipe_id FROM recipe_ingredient ri"
-                    + " JOIN ingredient i ON i.id = ri.ingredient"
-                    + " WHERE LOWER(i.name) IN (:includeNames)"
-                    + " GROUP BY ri.recipe_id"
-                    + " HAVING COUNT(DISTINCT LOWER(i.name)) = :includeCount)");
+            predicates.add("""
+                    r.id IN (SELECT ri.recipe_id FROM recipe_ingredient ri
+                        JOIN ingredient i ON i.id = ri.ingredient
+                        WHERE LOWER(i.name) IN (:includeNames)
+                        GROUP BY ri.recipe_id
+                        HAVING COUNT(DISTINCT LOWER(i.name)) = :includeCount)""");
             params.addValue("includeNames", include);
             params.addValue("includeCount", include.size());
         }
 
         List<String> exclude = lowerCasedDistinct(criteria.excludeIngredients());
         if (!exclude.isEmpty()) {
-            predicates.add("r.id NOT IN (SELECT ri.recipe_id FROM recipe_ingredient ri"
-                    + " JOIN ingredient i ON i.id = ri.ingredient"
-                    + " WHERE LOWER(i.name) IN (:excludeNames))");
+            predicates.add("""
+                    r.id NOT IN (SELECT ri.recipe_id FROM recipe_ingredient ri
+                        JOIN ingredient i ON i.id = ri.ingredient
+                        WHERE LOWER(i.name) IN (:excludeNames))""");
             params.addValue("excludeNames", exclude);
         }
 
