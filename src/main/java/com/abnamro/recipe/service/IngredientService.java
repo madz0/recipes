@@ -2,6 +2,9 @@ package com.abnamro.recipe.service;
 
 import com.abnamro.recipe.service.exception.DuplicateIngredientNameException;
 import com.abnamro.recipe.service.exception.IngredientNotFoundException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -64,6 +67,20 @@ public class IngredientService {
     public Ingredient get(UUID publicId) {
         return ingredients.findByPublicId(publicId)
                 .orElseThrow(() -> new IngredientNotFoundException(publicId));
+    }
+
+    /** Returns catalog ingredients matching the given public ids (unknown ids are omitted). */
+    @Transactional(readOnly = true)
+    public List<Ingredient> findByPublicIds(Collection<UUID> publicIds) {
+        return ingredients.findByPublicIdIn(publicIds);
+    }
+
+    /** Batch-loads catalog ingredients by internal id. */
+    @Transactional(readOnly = true)
+    public List<Ingredient> findByIds(Collection<Long> ids) {
+        List<Ingredient> result = new ArrayList<>();
+        ingredients.findAllById(ids).forEach(result::add);
+        return result;
     }
 
     /** Deletes the ingredient with the given public UUID, or throws if none exists. */

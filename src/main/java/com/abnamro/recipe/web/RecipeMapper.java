@@ -17,7 +17,7 @@ import com.abnamro.recipe.api.model.RecipeIngredient;
 import com.abnamro.recipe.api.model.RecipeIngredientSelection;
 import com.abnamro.recipe.api.model.RecipePage;
 import com.abnamro.recipe.model.DietaryFlag;
-import com.abnamro.recipe.service.RecipeService;
+import com.abnamro.recipe.service.dto.IngredientSelectionDto;
 import com.abnamro.recipe.service.dto.RecipeDto;
 
 /**
@@ -29,9 +29,9 @@ import com.abnamro.recipe.service.dto.RecipeDto;
 @Mapper(componentModel = "spring")
 interface RecipeMapper {
 
-    /** A recipe view with its pre-joined ingredients → the API {@code Recipe} DTO. */
+    /** A recipe dto with its pre-joined ingredients → the API {@code Recipe} DTO. */
     @Mapping(target = "id", source = "publicId")
-    Recipe toDto(RecipeDto view);
+    Recipe toDto(RecipeDto dto);
 
     /** Sorts the mapped ingredients case-insensitively by name (MapStruct does not sort). */
     @AfterMapping
@@ -54,7 +54,7 @@ interface RecipeMapper {
                 profile.is(DietaryFlag.NUT));
     }
 
-    /** A page of recipe views → the API {@code RecipePage}. */
+    /** A page of recipe dtos → the API {@code RecipePage}. */
     default RecipePage toPageDto(Page<RecipeDto> page) {
         List<Recipe> content = page.getContent().stream().map(this::toDto).toList();
         return new RecipePage(
@@ -69,7 +69,7 @@ interface RecipeMapper {
 
     /** API create-request selections → domain selections (enum converted, null → empty list). */
     @IterableMapping(nullValueMappingStrategy = NullValueMappingStrategy.RETURN_DEFAULT)
-    List<RecipeService.IngredientSelection> toDomainSelections(List<RecipeIngredientSelection> selections);
+    List<IngredientSelectionDto> toDomainSelections(List<RecipeIngredientSelection> selections);
 
-    RecipeService.IngredientSelection toDomainSelection(RecipeIngredientSelection selection);
+    IngredientSelectionDto toDomainSelection(RecipeIngredientSelection selection);
 }

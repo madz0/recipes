@@ -456,7 +456,12 @@ components:
             - 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78
         quantity:
           type: number
-          minimum: 0
+          exclusiveMinimum: 0
+          # The generator (7.16.0) does not emit a Bean Validation constraint from
+          # OpenAPI 3.1 `exclusiveMinimum`, so enforce the strict lower bound via an
+          # explicit annotation on the generated field. `exclusiveMinimum` above keeps
+          # the published contract accurate for other consumers.
+          x-field-extra-annotation: '@jakarta.validation.constraints.DecimalMin(value = "0", inclusive = false)'
           description: Amount of the ingredient, expressed in `unit`.
           examples:
             - 500
@@ -485,7 +490,12 @@ components:
             - Potatoes
         quantity:
           type: number
-          minimum: 0
+          exclusiveMinimum: 0
+          # The generator (7.16.0) does not emit a Bean Validation constraint from
+          # OpenAPI 3.1 `exclusiveMinimum`, so enforce the strict lower bound via an
+          # explicit annotation on the generated field. `exclusiveMinimum` above keeps
+          # the published contract accurate for other consumers.
+          x-field-extra-annotation: '@jakarta.validation.constraints.DecimalMin(value = "0", inclusive = false)'
           description: Amount of the ingredient, expressed in `unit`.
           examples:
             - 500

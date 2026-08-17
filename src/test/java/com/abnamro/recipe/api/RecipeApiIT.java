@@ -205,6 +205,28 @@ class RecipeApiIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
+    /**
+     * Given a create request whose ingredient carries a zero quantity, when it is
+     * POSTed then the API rejects it with 400 Bad Request (quantity must be
+     * strictly greater than 0).
+     */
+    @DisplayName("POST with a zero ingredient quantity → 400")
+    @Test
+    void createWithZeroQuantityReturns400() {
+        Ingredient vegetable = createIngredient(IngredientType.VEGETABLE);
+        RecipeCreateRequest request = new RecipeCreateRequest(
+                "IT zero-qty " + UUID.randomUUID(),
+                2,
+                "Chop.",
+                List.of(new RecipeIngredientSelection(vegetable.publicId())
+                        .quantity(BigDecimal.ZERO)
+                        .unit(MeasurementUnit.GRAMS)));
+
+        ResponseEntity<String> response = rest.postForEntity(RECIPES, request, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
     // --- get ---------------------------------------------------------------
 
     /**

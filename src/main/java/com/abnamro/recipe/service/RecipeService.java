@@ -1,9 +1,9 @@
 package com.abnamro.recipe.service;
 
+import com.abnamro.recipe.service.dto.IngredientSelectionDto;
 import com.abnamro.recipe.service.dto.RecipeDto;
 import com.abnamro.recipe.service.exception.RecipeIngredientNotFoundException;
 import com.abnamro.recipe.service.exception.RecipeNotFoundException;
-import java.math.BigDecimal;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -27,13 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.abnamro.recipe.model.DietaryProfile;
 import com.abnamro.recipe.model.Ingredient;
 import com.abnamro.recipe.model.IngredientType;
-import com.abnamro.recipe.model.MeasurementUnit;
 import com.abnamro.recipe.model.Recipe;
 import com.abnamro.recipe.model.RecipeIngredient;
-import com.abnamro.recipe.repository.IngredientRepository;
 import com.abnamro.recipe.repository.RecipeRepository;
 import com.abnamro.recipe.repository.RecipeSearchCriteria;
 import com.abnamro.recipe.repository.RecipeSearchRepository;
+import com.abnamro.recipe.service.mapper.RecipeDtoMapper;
 
 /**
  * Application service for recipes. Owns the business rules behind the Recipes API:
@@ -45,19 +44,18 @@ import com.abnamro.recipe.repository.RecipeSearchRepository;
 public class RecipeService {
 
     private final RecipeRepository recipes;
-    private final IngredientRepository ingredients;
+    private final IngredientService ingredientService;
     private final RecipeSearchRepository search;
+    private final RecipeDtoMapper recipeDtoMapper;
 
     public RecipeService(RecipeRepository recipes,
-                         IngredientRepository ingredients,
-                         RecipeSearchRepository search) {
+                         IngredientService ingredientService,
+                         RecipeSearchRepository search,
+                         RecipeDtoMapper recipeDtoMapper) {
         this.recipes = recipes;
-        this.ingredients = ingredients;
+        this.ingredientService = ingredientService;
         this.search = search;
-    }
-
-    /** One ingredient chosen for a recipe, referencing an existing catalog ingredient by its public id. */
-    public record IngredientSelection(UUID ingredientId, BigDecimal quantity, MeasurementUnit unit) {
+        this.recipeDtoMapper = recipeDtoMapper;
     }
 
     /**
@@ -68,13 +66,13 @@ public class RecipeService {
      */
     @Transactional
     public RecipeDto create(String name, int servings, String instructions,
-                             List<IngredientSelection> selections) {
+                             List<IngredientSelectionDto> selections) {
         ResolvedSelections resolved = resolveSelections(selections);
         DietaryProfile profile = deriveProfile(resolved.byId().values());
         Recipe saved = recipes.save(new Recipe(
                 null, UUID.randomUUID(), name, servings, instructions, profile,
                 resolved.recipeIngredients()));
-        return toView(saved, resolved.byId());
+        return recipeDtoMapper.toDto(saved, resolved.byId());
     }
 
     /**
@@ -89,7 +87,7 @@ public class RecipeService {
      */
     @Transactional
     public RecipeDto update(UUID publicId, String name, int servings, String instructions,
-                            List<IngredientSelection> selections) {
+                            List<IngredientSelectionDto> selections) {
         Recipe existing = recipes.findByPublicId(publicId)
                 .orElseThrow(() -> new RecipeNotFoundException(publicId));
         ResolvedSelections resolved = resolveSelections(selections);
@@ -97,7 +95,7 @@ public class RecipeService {
         Recipe saved = recipes.save(new Recipe(
                 existing.id(), existing.publicId(), name, servings, instructions, profile,
                 resolved.recipeIngredients()));
-        return toView(saved, resolved.byId());
+        return recipeDtoMapper.toDto(saved, resolved.byId());
     }
 
     /** Deletes the recipe with the given public UUID, or throws if none exists. */
@@ -108,27 +106,23 @@ public class RecipeService {
         recipes.delete(existing);
     }
 
-    /** The catalog ingredients a selection resolves to, plus the join rows to persist. */
-    private record ResolvedSelections(Map<Long, Ingredient> byId, Set<RecipeIngredient> recipeIngredients) {
-    }
-
     /**
-     * Resolves each {@link IngredientSelection} against the catalog by its public id,
+     * Resolves each {@link IngredientSelectionDto} against the catalog by its public id,
      * building the (internal-id → {@link Ingredient}) lookup and the
      * {@link RecipeIngredient} join rows in one pass. An unknown ingredient id yields
      * a {@link RecipeIngredientNotFoundException} (400). Shared by {@link #create} and
      * {@link #update} so both apply identical resolution and error behavior.
      */
-    private ResolvedSelections resolveSelections(List<IngredientSelection> selections) {
+    private ResolvedSelections resolveSelections(List<IngredientSelectionDto> selections) {
         List<UUID> requestedIds = selections.stream()
-                .map(IngredientSelection::ingredientId)
+                .map(IngredientSelectionDto::ingredientId)
                 .toList();
-        Map<UUID, Ingredient> ingredientsByPublicId = ingredients.findByPublicIdIn(requestedIds).stream()
+        Map<UUID, Ingredient> ingredientsByPublicId = ingredientService.findByPublicIds(requestedIds).stream()
                 .collect(Collectors.toMap(Ingredient::publicId, Function.identity()));
 
         Map<Long, Ingredient> resolved = new HashMap<>();
         Set<RecipeIngredient> recipeIngredients = new LinkedHashSet<>();
-        for (IngredientSelection selection : selections) {
+        for (IngredientSelectionDto selection : selections) {
             Ingredient ingredient = ingredientsByPublicId.get(selection.ingredientId());
             if (ingredient == null) {
                 throw new RecipeIngredientNotFoundException(selection.ingredientId());
@@ -146,7 +140,7 @@ public class RecipeService {
         Recipe recipe = recipes.findByPublicId(publicId)
                 .orElseThrow(() -> new RecipeNotFoundException(publicId));
         Map<Long, Ingredient> byId = loadIngredients(List.of(recipe));
-        return toView(recipe, byId);
+        return recipeDtoMapper.toDto(recipe, byId);
     }
 
     /** Returns a filtered, paginated page of recipes ordered by name. */
@@ -165,7 +159,7 @@ public class RecipeService {
 
         Map<Long, Ingredient> ingredientsById = loadIngredients(ordered);
         List<RecipeDto> content = ordered.stream()
-                .map(r -> toView(r, ingredientsById))
+                .map(r -> recipeDtoMapper.toDto(r, ingredientsById))
                 .toList();
         return new PageImpl<>(content, pageable, result.totalElements());
     }
@@ -180,30 +174,9 @@ public class RecipeService {
         }
         Map<Long, Ingredient> byId = new HashMap<>();
         if (!ids.isEmpty()) {
-            ingredients.findAllById(ids).forEach(i -> byId.put(i.id(), i));
+            ingredientService.findByIds(ids).forEach(i -> byId.put(i.id(), i));
         }
         return byId;
-    }
-
-    /** Builds the flattened view from a persisted recipe and the resolved ingredient lookup. */
-    private static RecipeDto toView(Recipe recipe, Map<Long, Ingredient> byId) {
-        return new RecipeDto(
-                recipe.publicId(),
-                recipe.name(),
-                recipe.servings(),
-                recipe.instructions(),
-                recipe.dietaryProfile(),
-                toViewIngredients(recipe, byId));
-    }
-
-    /** Joins each stored {@link RecipeIngredient} (FK + quantity + unit) with its catalog details. */
-    private static List<RecipeDto.Ingredient> toViewIngredients(Recipe recipe, Map<Long, Ingredient> byId) {
-        return recipe.ingredients().stream()
-                .map(ri -> {
-                    Ingredient ing = byId.get(ri.ingredient().getId());
-                    return new RecipeDto.Ingredient(ing.publicId(), ing.name(), ri.quantity(), ri.unit());
-                })
-                .toList();
     }
 
     /**
@@ -230,5 +203,9 @@ public class RecipeService {
             presentTypes.add(ingredient.type());
         }
         return DietaryProfile.from(presentTypes);
+    }
+
+    /** The catalog ingredients a selection resolves to, plus the join rows to persist. */
+    private record ResolvedSelections(Map<Long, Ingredient> byId, Set<RecipeIngredient> recipeIngredients) {
     }
 }
