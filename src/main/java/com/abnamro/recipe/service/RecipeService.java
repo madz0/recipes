@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -113,7 +114,7 @@ public class RecipeService {
         Map<Long, Recipe> byId = new HashMap<>();
         recipes.findAllById(result.ids()).forEach(r -> byId.put(r.id(), r));
         // Preserve the name ordering the search query produced.
-        List<Recipe> ordered = result.ids().stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
+        List<Recipe> ordered = result.ids().stream().map(byId::get).filter(Objects::nonNull).toList();
 
         Map<Long, Ingredient> ingredientsById = loadIngredients(ordered);
         List<RecipeDto> content = ordered.stream()

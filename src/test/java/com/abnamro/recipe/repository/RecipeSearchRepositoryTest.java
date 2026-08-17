@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -48,7 +49,7 @@ class RecipeSearchRepositoryTest {
     private RecipeSearchRepository search;
 
     @Autowired
-    private com.abnamro.recipe.repository.RecipeRepository recipes;
+    private RecipeRepository recipes;
 
     @Autowired
     private IngredientService ingredientService;
@@ -64,7 +65,7 @@ class RecipeSearchRepositoryTest {
         return saved.id();
     }
 
-    private java.util.List<Long> searchIds(Map<DietaryFlag, Boolean> dietary) {
+    private List<Long> searchIds(Map<DietaryFlag, Boolean> dietary) {
         return search.search(new RecipeSearchCriteria(dietary, null, null, null, null), PAGE).ids();
     }
 

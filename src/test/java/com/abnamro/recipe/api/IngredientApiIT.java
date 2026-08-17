@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -108,7 +109,7 @@ class IngredientApiIT {
         assertThat(found.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(found.getBody().getName()).isEqualTo(name);
 
-        ResponseEntity<Void> deleted = rest.exchange(BASE + "/" + id, org.springframework.http.HttpMethod.DELETE,
+        ResponseEntity<Void> deleted = rest.exchange(BASE + "/" + id, HttpMethod.DELETE,
                 null, Void.class);
         assertThat(deleted.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 
@@ -116,7 +117,7 @@ class IngredientApiIT {
         assertThat(gone.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(gone.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
 
-        ResponseEntity<Void> deleteAgain = rest.exchange(BASE + "/" + id, org.springframework.http.HttpMethod.DELETE,
+        ResponseEntity<Void> deleteAgain = rest.exchange(BASE + "/" + id, HttpMethod.DELETE,
                 null, Void.class);
         assertThat(deleteAgain.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }

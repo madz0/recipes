@@ -1,6 +1,7 @@
 package com.abnamro.recipe.web;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -71,7 +72,7 @@ final class RecipeQueryParser {
     }
 
     private static String allowedFlagTokens() {
-        return java.util.Arrays.stream(DietaryFlag.values())
+        return Arrays.stream(DietaryFlag.values())
                 .map(DietaryFlag::token)
                 .collect(Collectors.joining(", "));
     }
