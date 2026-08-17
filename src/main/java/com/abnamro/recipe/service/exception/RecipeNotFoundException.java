@@ -1,4 +1,4 @@
-package com.abnamro.recipe.service;
+package com.abnamro.recipe.service.exception;
 
 import java.util.UUID;
 

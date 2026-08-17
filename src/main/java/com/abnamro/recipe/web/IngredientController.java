@@ -24,16 +24,18 @@ import com.abnamro.recipe.service.IngredientService;
 public class IngredientController implements IngredientsApi {
 
     private final IngredientService service;
+    private final IngredientMapper mapper;
 
-    public IngredientController(IngredientService service) {
+    public IngredientController(IngredientService service, IngredientMapper mapper) {
         this.service = service;
+        this.mapper = mapper;
     }
 
     @Override
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Ingredient> createIngredient(IngredientCreateRequest request) {
-        var created = service.create(request.getName(), IngredientMapper.toDomainType(request.getType()));
-        Ingredient dto = IngredientMapper.toDto(created);
+        var created = service.create(request.getName(), mapper.toDomainType(request.getType()));
+        Ingredient dto = mapper.toDto(created);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(dto.getId())
@@ -44,14 +46,14 @@ public class IngredientController implements IngredientsApi {
     @Override
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<IngredientPage> listIngredients(Integer page, Integer size, IngredientType type) {
-        var result = service.list(page, size, IngredientMapper.toDomainType(type));
-        return ResponseEntity.ok(IngredientMapper.toPageDto(result));
+        var result = service.list(page, size, mapper.toDomainType(type));
+        return ResponseEntity.ok(mapper.toPageDto(result));
     }
 
     @Override
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Ingredient> getIngredient(UUID id) {
-        return ResponseEntity.ok(IngredientMapper.toDto(service.get(id)));
+        return ResponseEntity.ok(mapper.toDto(service.get(id)));
     }
 
     @Override

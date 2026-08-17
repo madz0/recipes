@@ -1,5 +1,8 @@
 package com.abnamro.recipe.service;
 
+import com.abnamro.recipe.service.dto.RecipeDto;
+import com.abnamro.recipe.service.exception.RecipeIngredientNotFoundException;
+import com.abnamro.recipe.service.exception.RecipeNotFoundException;
 import java.math.BigDecimal;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -63,7 +66,7 @@ public class RecipeService {
      * derived from the resolved ingredients and never supplied by the client.
      */
     @Transactional
-    public RecipeView create(String name, int servings, String instructions,
+    public RecipeDto create(String name, int servings, String instructions,
                              List<IngredientSelection> selections) {
         List<UUID> requestedIds = selections.stream()
                 .map(IngredientSelection::ingredientId)
@@ -91,7 +94,7 @@ public class RecipeService {
 
     /** Returns the recipe with the given public UUID, or throws if none exists. */
     @Transactional(readOnly = true)
-    public RecipeView get(UUID publicId) {
+    public RecipeDto get(UUID publicId) {
         Recipe recipe = recipes.findByPublicId(publicId)
                 .orElseThrow(() -> new RecipeNotFoundException(publicId));
         Map<Long, Ingredient> byId = loadIngredients(List.of(recipe));
@@ -100,7 +103,7 @@ public class RecipeService {
 
     /** Returns a filtered, paginated page of recipes ordered by name. */
     @Transactional(readOnly = true)
-    public Page<RecipeView> list(int page, int size, RecipeSearchCriteria criteria) {
+    public Page<RecipeDto> list(int page, int size, RecipeSearchCriteria criteria) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("name"));
         RecipeSearchRepository.Result result = search.search(criteria, pageable);
         if (result.ids().isEmpty()) {
@@ -113,7 +116,7 @@ public class RecipeService {
         List<Recipe> ordered = result.ids().stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
 
         Map<Long, Ingredient> ingredientsById = loadIngredients(ordered);
-        List<RecipeView> content = ordered.stream()
+        List<RecipeDto> content = ordered.stream()
                 .map(r -> toView(r, ingredientsById))
                 .toList();
         return new PageImpl<>(content, pageable, result.totalElements());
@@ -135,8 +138,8 @@ public class RecipeService {
     }
 
     /** Builds the flattened view from a persisted recipe and the resolved ingredient lookup. */
-    private static RecipeView toView(Recipe recipe, Map<Long, Ingredient> byId) {
-        return new RecipeView(
+    private static RecipeDto toView(Recipe recipe, Map<Long, Ingredient> byId) {
+        return new RecipeDto(
                 recipe.publicId(),
                 recipe.name(),
                 recipe.servings(),
@@ -146,11 +149,11 @@ public class RecipeService {
     }
 
     /** Joins each stored {@link RecipeIngredient} (FK + quantity + unit) with its catalog details. */
-    private static List<RecipeView.Ingredient> toViewIngredients(Recipe recipe, Map<Long, Ingredient> byId) {
+    private static List<RecipeDto.Ingredient> toViewIngredients(Recipe recipe, Map<Long, Ingredient> byId) {
         return recipe.ingredients().stream()
                 .map(ri -> {
                     Ingredient ing = byId.get(ri.ingredient().getId());
-                    return new RecipeView.Ingredient(ing.publicId(), ing.name(), ri.quantity(), ri.unit());
+                    return new RecipeDto.Ingredient(ing.publicId(), ing.name(), ri.quantity(), ri.unit());
                 })
                 .toList();
     }

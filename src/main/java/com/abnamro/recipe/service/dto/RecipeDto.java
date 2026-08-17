@@ -1,4 +1,4 @@
-package com.abnamro.recipe.service;
+package com.abnamro.recipe.service.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -13,7 +13,7 @@ import com.abnamro.recipe.model.MeasurementUnit;
  * ingredients pre-joined with catalog identity/name. Holds no persistence
  * aggregate, so the web mapper needs neither id lookups nor domain types.
  */
-public record RecipeView(
+public record RecipeDto(
         UUID publicId,
         String name,
         int servings,

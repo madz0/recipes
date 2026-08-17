@@ -1,4 +1,4 @@
-package com.abnamro.recipe.service;
+package com.abnamro.recipe.service.exception;
 
 /**
  * Thrown when the {@code dietProfiles} filter contains a token that is not a known

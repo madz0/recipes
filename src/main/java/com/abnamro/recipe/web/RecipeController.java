@@ -25,9 +25,11 @@ import com.abnamro.recipe.service.RecipeService;
 public class RecipeController implements RecipesApi {
 
     private final RecipeService service;
+    private final RecipeMapper mapper;
 
-    public RecipeController(RecipeService service) {
+    public RecipeController(RecipeService service, RecipeMapper mapper) {
         this.service = service;
+        this.mapper = mapper;
     }
 
     @Override
@@ -37,8 +39,8 @@ public class RecipeController implements RecipesApi {
                 request.getName(),
                 request.getServings(),
                 request.getInstructions(),
-                RecipeMapper.toDomainSelections(request.getIngredients()));
-        Recipe dto = RecipeMapper.toDto(created);
+                mapper.toDomainSelections(request.getIngredients()));
+        Recipe dto = mapper.toDto(created);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(dto.getId())
@@ -49,7 +51,7 @@ public class RecipeController implements RecipesApi {
     @Override
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Recipe> getRecipe(UUID id) {
-        return ResponseEntity.ok(RecipeMapper.toDto(service.get(id)));
+        return ResponseEntity.ok(mapper.toDto(service.get(id)));
     }
 
     @Override
@@ -57,11 +59,11 @@ public class RecipeController implements RecipesApi {
     public ResponseEntity<RecipePage> listRecipes(Integer page, Integer size, List<String> dietProfiles,
                                                   Integer servings, List<String> ingredients,
                                                   String instructionsContains) {
-        var parsedIngredients = RecipeMapper.toIngredientFilters(ingredients);
+        var parsedIngredients = RecipeQueryParser.toIngredientFilters(ingredients);
         var criteria = new RecipeSearchCriteria(
-                RecipeMapper.toDietaryFilters(dietProfiles),
+                RecipeQueryParser.toDietaryFilters(dietProfiles),
                 servings, parsedIngredients.include(), parsedIngredients.exclude(), instructionsContains);
         var result = service.list(page, size, criteria);
-        return ResponseEntity.ok(RecipeMapper.toPageDto(result));
+        return ResponseEntity.ok(mapper.toPageDto(result));
     }
 }

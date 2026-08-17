@@ -19,9 +19,20 @@
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <mapstruct.version>1.6.3</mapstruct.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <!-- MapStruct: generates the web-layer DTO mappers (RecipeMapper,
+                 IngredientMapper). Version is not managed by the Spring Boot parent,
+                 so it is pinned via the mapstruct.version property. The matching
+                 mapstruct-processor is wired as an annotation processor below. -->
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${mapstruct.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
@@ -129,6 +140,25 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!--
+                Runs the MapStruct annotation processor during compilation. No Lombok
+                is present, so lombok-mapstruct-binding is not needed. The OpenAPI DTOs
+                are generated in the generate-sources phase (before compile), so the
+                mappers referencing api.model.* compile against them here.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
             <!--
                 Generates the API interface (IngredientsApi) and the model DTOs

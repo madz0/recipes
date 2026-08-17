@@ -1,4 +1,4 @@
-package com.abnamro.recipe.service;
+package com.abnamro.recipe.service.exception;
 
 /**
  * Thrown when creating an ingredient whose name already exists. Ingredient names

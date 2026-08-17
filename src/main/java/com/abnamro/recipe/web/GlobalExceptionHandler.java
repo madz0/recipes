@@ -5,11 +5,11 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.abnamro.recipe.service.DuplicateIngredientNameException;
-import com.abnamro.recipe.service.IngredientNotFoundException;
-import com.abnamro.recipe.service.InvalidDietProfileException;
-import com.abnamro.recipe.service.RecipeIngredientNotFoundException;
-import com.abnamro.recipe.service.RecipeNotFoundException;
+import com.abnamro.recipe.service.exception.DuplicateIngredientNameException;
+import com.abnamro.recipe.service.exception.IngredientNotFoundException;
+import com.abnamro.recipe.service.exception.InvalidDietProfileException;
+import com.abnamro.recipe.service.exception.RecipeIngredientNotFoundException;
+import com.abnamro.recipe.service.exception.RecipeNotFoundException;
 
 import jakarta.validation.ConstraintViolationException;
 
