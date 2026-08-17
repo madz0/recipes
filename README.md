@@ -254,6 +254,32 @@ automatically by Spring Boot's Docker Compose support:
 mvn spring-boot:run
 ```
 
+## API testing with Postman
+
+A ready-to-run Postman collection lives at `postman/recipes.postman_collection.json`. It
+covers all nine endpoints of both API slices as a **single chained happy-path flow**:
+create two ingredients, create a recipe that references them, read / list / `PUT`-update
+it, then clean up in dependency order (delete the recipe first, then its ingredients —
+an in-use ingredient can't be deleted). Created ids are captured into collection
+variables so each request feeds the next.
+
+The collection is self-contained: HTTP Basic auth is set at the collection level from the
+`username` / `password` variables (demo defaults `recipes` / `recipes-demo`), and `baseUrl`
+defaults to `http://localhost:8080`. Ingredient names are suffixed with `{{$timestamp}}`
+so re-runs don't collide with the unique-name rule. Each request asserts its expected
+status and response shape.
+
+Import it into Postman and run the collection top-to-bottom, or run it headless with
+[newman](https://github.com/postmanlabs/newman) against a running instance:
+
+```sh
+npm install -g newman                                   # once
+newman run postman/recipes.postman_collection.json
+```
+
+Override `baseUrl` / credentials per environment with newman's `--env-var`, e.g.
+`--env-var "password=$SPRING_SECURITY_USER_PASSWORD"`.
+
 ## Ingredient bootstrap
 
 The app can seed the shared ingredient catalog from a bundled resource,

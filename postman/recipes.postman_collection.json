@@ -1,0 +1,420 @@
+{
+  "info": {
+    "name": "Recipes Service API",
+    "_postman_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "description": "End-to-end happy-path collection for the Recipes Spring Boot service.\n\nExercises all 9 endpoints (Ingredients + Recipes) as a chained flow: create ingredients, use them to create a recipe, read/list/update, then clean up (recipe first, then ingredients — since an in-use ingredient cannot be deleted).\n\nRun top-to-bottom (Collection Runner or `newman run postman/recipes.postman_collection.json`). Requires the service running on http://localhost:8080 (mvn spring-boot:run).\n\nAuth: collection-level HTTP Basic using the {{username}}/{{password}} variables (demo defaults recipes / recipes-demo, which hold both USER and ADMIN roles).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      { "key": "username", "value": "{{username}}", "type": "string" },
+      { "key": "password", "value": "{{password}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "username", "value": "recipes", "type": "string" },
+    { "key": "password", "value": "recipes-demo", "type": "string" },
+    { "key": "ingredientId", "value": "", "type": "string" },
+    { "key": "ingredientId2", "value": "", "type": "string" },
+    { "key": "recipeId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Ingredients",
+      "item": [
+        {
+          "name": "Create ingredient A (Carrot / VEGETABLE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "pm.test('response has an id', function () {",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('type echoed back', function () {",
+                  "    pm.expect(body.type).to.eql('VEGETABLE');",
+                  "});",
+                  "pm.collectionVariables.set('ingredientId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Carrot {{$timestamp}}\",\n  \"type\": \"VEGETABLE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingredients",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingredients"]
+            },
+            "description": "Create an ingredient (role ADMIN). Name is suffixed with {{$timestamp}} to stay unique across re-runs (duplicate names return 409). Saves the returned id into {{ingredientId}}."
+          }
+        },
+        {
+          "name": "Create ingredient B (Chicken breast / MEAT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "pm.test('response has an id', function () {",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set('ingredientId2', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Chicken breast {{$timestamp}}\",\n  \"type\": \"MEAT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingredients",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingredients"]
+            },
+            "description": "Create a second ingredient (role ADMIN). Saves the returned id into {{ingredientId2}}."
+          }
+        },
+        {
+          "name": "List ingredients",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "pm.test('content is an array', function () {",
+                  "    pm.expect(body.content).to.be.an('array');",
+                  "});",
+                  "pm.test('pagination metadata present', function () {",
+                  "    pm.expect(body).to.have.property('totalElements');",
+                  "    pm.expect(body).to.have.property('page');",
+                  "    pm.expect(body).to.have.property('size');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingredients?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingredients"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "type", "value": "VEGETABLE", "disabled": true, "description": "Optional filter: MEAT | VEGETABLE | WHEAT | GLUTEN_FREE_WHEAT | NUT | DAIRY | EGG" }
+              ]
+            },
+            "description": "List ingredients, paginated (role USER). Enable the `type` query param to filter by a single ingredient type."
+          }
+        },
+        {
+          "name": "Get ingredient by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "pm.test('returns the requested ingredient', function () {",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('ingredientId'));",
+                  "    pm.expect(body).to.have.property('name');",
+                  "    pm.expect(body).to.have.property('type');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingredients/{{ingredientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingredients", "{{ingredientId}}"]
+            },
+            "description": "Fetch a single ingredient by its opaque UUID id (role USER)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recipes",
+      "item": [
+        {
+          "name": "Create recipe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "pm.test('response has an id', function () {",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('dietaryProfile derived by server', function () {",
+                  "    pm.expect(body.dietaryProfile).to.be.an('object');",
+                  "    pm.expect(body.dietaryProfile).to.have.property('vegetarian');",
+                  "});",
+                  "pm.test('ingredients echoed with names', function () {",
+                  "    pm.expect(body.ingredients).to.be.an('array').with.lengthOf(2);",
+                  "});",
+                  "pm.collectionVariables.set('recipeId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Chicken & carrot traybake {{$timestamp}}\",\n  \"servings\": 4,\n  \"instructions\": \"Chop the carrots, season the chicken, toss with oil, and roast in the oven at 200\\u00b0C for 35 minutes.\",\n  \"ingredients\": [\n    {\n      \"ingredientId\": \"{{ingredientId}}\",\n      \"quantity\": 300,\n      \"unit\": \"GRAMS\"\n    },\n    {\n      \"ingredientId\": \"{{ingredientId2}}\",\n      \"quantity\": 500,\n      \"unit\": \"GRAMS\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recipes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recipes"]
+            },
+            "description": "Create a recipe (role ADMIN) referencing the two ingredients created above. dietaryProfile is NOT sent — the server derives it from the ingredients. unit is a MeasurementUnit enum: GRAMS | KILOGRAMS | MILLILITERS | LITERS | PIECES | TEASPOONS | TABLESPOONS | CUPS. Saves the returned id into {{recipeId}}."
+          }
+        },
+        {
+          "name": "List recipes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "pm.test('content is an array', function () {",
+                  "    pm.expect(body.content).to.be.an('array');",
+                  "});",
+                  "pm.test('pagination metadata present', function () {",
+                  "    pm.expect(body).to.have.property('totalElements');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recipes?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recipes"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "dietProfiles", "value": "vegetarian,-gluten", "disabled": true, "description": "Comma list of diet flags (vegetarian, vegan, meat, gluten, wheat, nut); prefix '-' negates." },
+                { "key": "servings", "value": "4", "disabled": true, "description": "Exact number of servings." },
+                { "key": "ingredients", "value": "Carrot,-Salmon", "disabled": true, "description": "Comma list of ingredient names; prefix '-' negates (must NOT contain)." },
+                { "key": "instructionsContains", "value": "oven", "disabled": true, "description": "Full-text (word/stem) search in instructions." }
+              ]
+            },
+            "description": "List recipes, paginated and filterable (role USER). All filter params are optional and AND-combined; enable any of the disabled query params to try them."
+          }
+        },
+        {
+          "name": "Get recipe by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "pm.test('returns the requested recipe', function () {",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('recipeId'));",
+                  "    pm.expect(body).to.have.property('name');",
+                  "    pm.expect(body).to.have.property('dietaryProfile');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recipes/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recipes", "{{recipeId}}"]
+            },
+            "description": "Fetch a single recipe by its opaque UUID id (role USER)."
+          }
+        },
+        {
+          "name": "Update recipe (full replace)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "pm.test('servings updated to 6', function () {",
+                  "    pm.expect(body.servings).to.eql(6);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Chicken & carrot traybake (family size)\",\n  \"servings\": 6,\n  \"instructions\": \"Chop the carrots, season the chicken, toss with oil, and roast in the oven at 200\\u00b0C for 40 minutes.\",\n  \"ingredients\": [\n    {\n      \"ingredientId\": \"{{ingredientId}}\",\n      \"quantity\": 450,\n      \"unit\": \"GRAMS\"\n    },\n    {\n      \"ingredientId\": \"{{ingredientId2}}\",\n      \"quantity\": 750,\n      \"unit\": \"GRAMS\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recipes/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recipes", "{{recipeId}}"]
+            },
+            "description": "Full-replace update of the recipe (role ADMIN). Same payload shape as create; the server re-derives dietaryProfile from the new ingredient selection."
+          }
+        },
+        {
+          "name": "Delete recipe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recipes/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recipes", "{{recipeId}}"]
+            },
+            "description": "Delete the recipe (role ADMIN). Must run before deleting its ingredients, since an in-use ingredient cannot be deleted (409)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "item": [
+        {
+          "name": "Delete ingredient A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingredients/{{ingredientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingredients", "{{ingredientId}}"]
+            },
+            "description": "Delete the first ingredient (role ADMIN). Runs after the recipe is deleted so it is no longer in use."
+          }
+        },
+        {
+          "name": "Delete ingredient B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingredients/{{ingredientId2}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingredients", "{{ingredientId2}}"]
+            },
+            "description": "Delete the second ingredient (role ADMIN)."
+          }
+        }
+      ]
+    }
+  ]
+}
