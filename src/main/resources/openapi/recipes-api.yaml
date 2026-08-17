@@ -15,6 +15,20 @@ info:
     (see the Ingredients API), each referenced by its ingredient `id`. The
     recipe's `dietaryProfile` is **derived from those ingredients** by the server
     and is never supplied by the client.
+
+
+    ## Authentication & authorization
+
+    Every endpoint requires HTTP Basic authentication. Authorization is
+    role-based, enforced per operation:
+
+    - **`USER`** — read access: `getRecipe`, `listRecipes`.
+
+    - **`ADMIN`** — write access: `createRecipe`, `updateRecipe`, `deleteRecipe`.
+
+    The required role is noted on each operation below. An unauthenticated
+    request is rejected with `401 Unauthorized`; an authenticated request that
+    lacks the required role is rejected with `403 Forbidden`.
   version: 1.0.0
   contact:
     name: Recipes service
@@ -22,6 +36,11 @@ info:
 servers:
   - url: /
     description: Same-origin (path is versioned under /api/v1)
+
+# Every operation requires HTTP Basic authentication; the role required on top
+# of authentication is documented per operation (see each `description`).
+security:
+  - basicAuth: []
 
 tags:
   - name: Recipes
@@ -34,6 +53,9 @@ paths:
       operationId: listRecipes
       summary: List recipes (paginated, filterable)
       description: >-
+        **Required role:** `USER`.
+
+
         Returns a page of recipes ordered by name. All filters are optional and
         combined with AND. For example:
 
@@ -164,11 +186,18 @@ paths:
                 last: true
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       tags: [Recipes]
       operationId: createRecipe
       summary: Create a recipe
       description: >-
+        **Required role:** `ADMIN`.
+
+
         Creates a new recipe. The server assigns the `id` and derives the
         `dietaryProfile` from the selected ingredients. Every field is
         mandatory, and at least one ingredient must be selected. Each selected
@@ -233,6 +262,10 @@ paths:
                   nut: false
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /api/v1/recipes/{id}:
     parameters:
@@ -241,6 +274,7 @@ paths:
       tags: [Recipes]
       operationId: getRecipe
       summary: Get a recipe by id
+      description: '**Required role:** `USER`.'
       responses:
         '200':
           description: The requested recipe.
@@ -267,6 +301,10 @@ paths:
                   gluten: false
                   wheat: false
                   nut: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     put:
@@ -274,6 +312,9 @@ paths:
       operationId: updateRecipe
       summary: Update a recipe (full replace)
       description: >-
+        **Required role:** `ADMIN`.
+
+
         Replaces the recipe identified by `id` in full: `name`, `servings`,
         `instructions`, and the complete set of selected ingredients are all
         overwritten with the request body (the same payload as create). The
@@ -309,19 +350,37 @@ paths:
                 $ref: '#/components/schemas/Recipe'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
       tags: [Recipes]
       operationId: deleteRecipe
       summary: Delete a recipe by id
+      description: '**Required role:** `ADMIN`.'
       responses:
         '204':
           description: The recipe was deleted (no content).
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
 components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: >-
+        HTTP Basic authentication. Authenticated principals carry roles
+        (`USER` and/or `ADMIN`); the role required for each operation is stated
+        in that operation's description.
+
   parameters:
     RecipeId:
       name: id
@@ -366,6 +425,34 @@ components:
             title: Bad Request
             status: 400
             detail: "No ingredient found with id 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78."
+            instance: /api/v1/recipes
+    Unauthorized:
+      description: >-
+        Authentication is missing or invalid. Supply valid HTTP Basic
+        credentials.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Unauthorized
+            status: 401
+            detail: Full authentication is required to access this resource.
+            instance: /api/v1/recipes
+    Forbidden:
+      description: >-
+        The caller is authenticated but lacks the role required for this
+        operation (`USER` for reads, `ADMIN` for writes).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Forbidden
+            status: 403
+            detail: Access denied.
             instance: /api/v1/recipes
     NotFound:
       description: No recipe exists with the given id.

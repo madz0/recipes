@@ -9,6 +9,20 @@ info:
     Ingredients are identified by an opaque UUID surrogate (`id`). The internal
     database primary key is never exposed, and the (mutable) `name` is a unique
     business key used for duplicate detection — not an identifier.
+
+
+    ## Authentication & authorization
+
+    Every endpoint requires HTTP Basic authentication. Authorization is
+    role-based, enforced per operation:
+
+    - **`USER`** — read access: `getIngredient`, `listIngredients`.
+
+    - **`ADMIN`** — write access: `createIngredient`, `deleteIngredient`.
+
+    The required role is noted on each operation below. An unauthenticated
+    request is rejected with `401 Unauthorized`; an authenticated request that
+    lacks the required role is rejected with `403 Forbidden`.
   version: 1.0.0
   contact:
     name: Recipes service
@@ -16,6 +30,11 @@ info:
 servers:
   - url: /
     description: Same-origin (path is versioned under /api/v1)
+
+# Every operation requires HTTP Basic authentication; the role required on top
+# of authentication is documented per operation (see each `description`).
+security:
+  - basicAuth: []
 
 tags:
   - name: Ingredients
@@ -28,6 +47,9 @@ paths:
       operationId: listIngredients
       summary: List ingredients (paginated)
       description: >-
+        **Required role:** `USER`.
+
+
         Returns a page of ingredients ordered by name. Use `page` and `size` to
         page through the catalog and the optional `type` filter to restrict the
         result to a single ingredient type.
@@ -63,11 +85,18 @@ paths:
                 last: true
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       tags: [Ingredients]
       operationId: createIngredient
       summary: Create an ingredient
       description: >-
+        **Required role:** `ADMIN`.
+
+
         Creates a new ingredient. The server assigns the `id`. Ingredient names
         are unique — creating an ingredient with a name that already exists
         returns `409 Conflict`.
@@ -101,6 +130,10 @@ paths:
                 type: WHEAT
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
 
@@ -111,6 +144,7 @@ paths:
       tags: [Ingredients]
       operationId: getIngredient
       summary: Get an ingredient by id
+      description: '**Required role:** `USER`.'
       responses:
         '200':
           description: The requested ingredient.
@@ -122,19 +156,37 @@ paths:
                 id: 018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1
                 name: Chicken breast
                 type: MEAT
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
       tags: [Ingredients]
       operationId: deleteIngredient
       summary: Delete an ingredient by id
+      description: '**Required role:** `ADMIN`.'
       responses:
         '204':
           description: The ingredient was deleted (no content).
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
 components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: >-
+        HTTP Basic authentication. Authenticated principals carry roles
+        (`USER` and/or `ADMIN`); the role required for each operation is stated
+        in that operation's description.
+
   parameters:
     IngredientId:
       name: id
@@ -179,6 +231,34 @@ components:
             title: Bad Request
             status: 400
             detail: "'size' must be less than or equal to 100."
+            instance: /api/v1/ingredients
+    Unauthorized:
+      description: >-
+        Authentication is missing or invalid. Supply valid HTTP Basic
+        credentials.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Unauthorized
+            status: 401
+            detail: Full authentication is required to access this resource.
+            instance: /api/v1/ingredients
+    Forbidden:
+      description: >-
+        The caller is authenticated but lacks the role required for this
+        operation (`USER` for reads, `ADMIN` for writes).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Forbidden
+            status: 403
+            detail: Access denied.
             instance: /api/v1/ingredients
     NotFound:
       description: No ingredient exists with the given id.
