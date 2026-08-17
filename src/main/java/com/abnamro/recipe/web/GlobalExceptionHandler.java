@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.abnamro.recipe.service.exception.DuplicateIngredientNameException;
+import com.abnamro.recipe.service.exception.DuplicateRecipeIngredientException;
 import com.abnamro.recipe.service.exception.IngredientInUseException;
 import com.abnamro.recipe.service.exception.IngredientNotFoundException;
 import com.abnamro.recipe.service.exception.InvalidDietProfileException;
@@ -33,11 +34,12 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * A recipe referencing an unknown ingredient id. Per the Recipes API contract
-     * this is a client error rendered as {@code 400 Bad Request} (not 404).
+     * A recipe create/update whose ingredient list is invalid: an unknown catalog
+     * id, or the same catalog ingredient selected more than once. Per the Recipes
+     * API contract these are client errors rendered as {@code 400 Bad Request}.
      */
-    @ExceptionHandler(RecipeIngredientNotFoundException.class)
-    public ProblemDetail handleRecipeIngredientNotFound(RecipeIngredientNotFoundException ex) {
+    @ExceptionHandler({RecipeIngredientNotFoundException.class, DuplicateRecipeIngredientException.class})
+    public ProblemDetail handleInvalidRecipeIngredients(RuntimeException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
         problem.setTitle("Bad Request");
         return problem;

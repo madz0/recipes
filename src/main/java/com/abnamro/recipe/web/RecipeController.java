@@ -13,7 +13,6 @@ import com.abnamro.recipe.api.RecipesApi;
 import com.abnamro.recipe.api.model.Recipe;
 import com.abnamro.recipe.api.model.RecipeCreateRequest;
 import com.abnamro.recipe.api.model.RecipePage;
-import com.abnamro.recipe.repository.RecipeSearchCriteria;
 import com.abnamro.recipe.service.RecipeService;
 
 /**
@@ -78,11 +77,7 @@ public class RecipeController implements RecipesApi {
     public ResponseEntity<RecipePage> listRecipes(Integer page, Integer size, List<String> dietProfiles,
                                                   Integer servings, List<String> ingredients,
                                                   String instructionsContains) {
-        var parsedIngredients = RecipeQueryParser.toIngredientFilters(ingredients);
-        var criteria = new RecipeSearchCriteria(
-                RecipeQueryParser.toDietaryFilters(dietProfiles),
-                servings, parsedIngredients.include(), parsedIngredients.exclude(), instructionsContains);
-        var result = service.list(page, size, criteria);
+        var result = service.list(page, size, dietProfiles, servings, ingredients, instructionsContains);
         return ResponseEntity.ok(mapper.toPageDto(result));
     }
 }

@@ -1,4 +1,4 @@
-package com.abnamro.recipe.web;
+package com.abnamro.recipe.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

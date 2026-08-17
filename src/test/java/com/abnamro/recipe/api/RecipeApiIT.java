@@ -179,6 +179,25 @@ class RecipeApiIT {
     }
 
     /**
+     * Given a create request that lists the same catalog ingredient twice, when it
+     * is POSTed then the API rejects it with 400 Bad Request and an
+     * {@code application/problem+json} error body (join rows are unique per
+     * {@code (recipe, ingredient)}).
+     */
+    @DisplayName("POST with a duplicate ingredient id → 400 problem+json")
+    @Test
+    void createWithDuplicateIngredientReturns400ProblemJson() {
+        Ingredient vegetable = createIngredient(IngredientType.VEGETABLE);
+        RecipeCreateRequest request =
+                recipeRequest("Mix well.", vegetable.publicId(), vegetable.publicId());
+
+        ResponseEntity<String> response = rest.postForEntity(RECIPES, request, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    /**
      * Given a create request with an empty ingredient list, when it is POSTed then
      * the API rejects it with 400 Bad Request (at least one ingredient is required).
      */

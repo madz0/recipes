@@ -2,10 +2,12 @@ package com.abnamro.recipe.service;
 
 import com.abnamro.recipe.service.dto.IngredientSelectionDto;
 import com.abnamro.recipe.service.dto.RecipeDto;
+import com.abnamro.recipe.service.exception.DuplicateRecipeIngredientException;
 import com.abnamro.recipe.service.exception.RecipeIngredientNotFoundException;
 import com.abnamro.recipe.service.exception.RecipeNotFoundException;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,8 +63,10 @@ public class RecipeService {
     /**
      * Creates a recipe. Every selected ingredient must reference an existing
      * catalog ingredient by its public id; an unknown id yields a
-     * {@link RecipeIngredientNotFoundException} (400). The dietary profile is
-     * derived from the resolved ingredients and never supplied by the client.
+     * {@link RecipeIngredientNotFoundException} (400), and the same catalog id
+     * listed more than once yields a {@link DuplicateRecipeIngredientException}
+     * (400). The dietary profile is derived from the resolved ingredients and
+     * never supplied by the client.
      */
     @Transactional
     public RecipeDto create(String name, int servings, String instructions,
@@ -80,7 +84,8 @@ public class RecipeService {
      * {@code servings}, {@code instructions}, and full ingredient set with the
      * supplied values (full-replace semantics). Like {@link #create}, every
      * selected ingredient must reference an existing catalog ingredient (an unknown
-     * id yields a {@link RecipeIngredientNotFoundException}, 400); an unknown recipe
+     * id yields a {@link RecipeIngredientNotFoundException}, a duplicate id a
+     * {@link DuplicateRecipeIngredientException}, both 400); an unknown recipe
      * id yields a {@link RecipeNotFoundException} (404). The dietary profile is
      * re-derived from the new selection and re-stored in this same transaction, so
      * {@code dietary_profile_attributes} never drifts from the recipe's ingredients.
@@ -110,8 +115,11 @@ public class RecipeService {
      * Resolves each {@link IngredientSelectionDto} against the catalog by its public id,
      * building the (internal-id → {@link Ingredient}) lookup and the
      * {@link RecipeIngredient} join rows in one pass. An unknown ingredient id yields
-     * a {@link RecipeIngredientNotFoundException} (400). Shared by {@link #create} and
-     * {@link #update} so both apply identical resolution and error behavior.
+     * a {@link RecipeIngredientNotFoundException} (400); the same catalog id listed
+     * more than once yields a {@link DuplicateRecipeIngredientException} (400), which
+     * matches the join table's composite primary key {@code (recipe_id, ingredient)}.
+     * Shared by {@link #create} and {@link #update} so both apply identical resolution
+     * and error behavior.
      */
     private ResolvedSelections resolveSelections(List<IngredientSelectionDto> selections) {
         List<UUID> requestedIds = selections.stream()
@@ -122,7 +130,11 @@ public class RecipeService {
 
         Map<Long, Ingredient> resolved = new HashMap<>();
         Set<RecipeIngredient> recipeIngredients = new LinkedHashSet<>();
+        Set<UUID> seen = new HashSet<>();
         for (IngredientSelectionDto selection : selections) {
+            if (!seen.add(selection.ingredientId())) {
+                throw new DuplicateRecipeIngredientException(selection.ingredientId());
+            }
             Ingredient ingredient = ingredientsByPublicId.get(selection.ingredientId());
             if (ingredient == null) {
                 throw new RecipeIngredientNotFoundException(selection.ingredientId());
@@ -143,9 +155,19 @@ public class RecipeService {
         return recipeDtoMapper.toDto(recipe, byId);
     }
 
-    /** Returns a filtered, paginated page of recipes ordered by name. */
+    /**
+     * Returns a filtered, paginated page of recipes ordered by name. Parses the
+     * {@code dietProfiles} / {@code ingredients} query tokens (sign handling,
+     * cancel-out, unknown-flag rejection) before searching.
+     */
     @Transactional(readOnly = true)
-    public Page<RecipeDto> list(int page, int size, RecipeSearchCriteria criteria) {
+    public Page<RecipeDto> list(int page, int size, List<String> dietProfiles, Integer servings,
+                                List<String> ingredients, String instructionsContains) {
+        RecipeQueryParser.IngredientFilters parsedIngredients =
+                RecipeQueryParser.toIngredientFilters(ingredients);
+        RecipeSearchCriteria criteria = new RecipeSearchCriteria(
+                RecipeQueryParser.toDietaryFilters(dietProfiles),
+                servings, parsedIngredients.include(), parsedIngredients.exclude(), instructionsContains);
         Pageable pageable = PageRequest.of(page, size, Sort.by("name"));
         RecipeSearchRepository.Result result = search.search(criteria, pageable);
         if (result.ids().isEmpty()) {

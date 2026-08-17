@@ -116,13 +116,23 @@
         </rollback>
     </changeSet>
 
+    <!--
+        Composite PK (recipe_id, ingredient) makes each catalog ingredient unique
+        per recipe, gives PostgreSQL a replica identity, and indexes recipe_id as
+        the leftmost column for aggregate loads and ON DELETE CASCADE.
+
+        idx_recipe_ingredient_ingredient is a second btree: the PK cannot serve
+        WHERE ingredient = ? (btree leftmost-prefix). That lookup is used by
+        delete-in-use counts and by include/exclude search joins. Postgres does
+        not index FK columns automatically.
+    -->
     <changeSet id="0001-create-recipe-ingredient" author="recipes">
         <createTable tableName="recipe_ingredient">
             <column name="recipe_id" type="BIGINT">
-                <constraints nullable="false"/>
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_recipe_ingredient"/>
             </column>
             <column name="ingredient" type="BIGINT">
-                <constraints nullable="false"/>
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_recipe_ingredient"/>
             </column>
             <column name="quantity" type="NUMERIC(12, 3)"/>
             <column name="unit" type="VARCHAR(20)"/>
@@ -136,6 +146,29 @@
                 baseTableName="recipe_ingredient" baseColumnNames="ingredient"
                 referencedTableName="ingredient" referencedColumnNames="id"
                 constraintName="fk_recipe_ingredient_ingredient"/>
+        <createIndex tableName="recipe_ingredient" indexName="idx_recipe_ingredient_ingredient">
+            <column name="ingredient"/>
+        </createIndex>
+    </changeSet>
+
+    <!--
+        Search matches ingredient names case-insensitively (LOWER(i.name) IN …).
+        The original uq_ingredient_name is case-sensitive as stored, so "Salt"
+        and "salt" could both exist and then collapse in include/exclude counts.
+        A unique index on LOWER(name) makes the catalog match search. The
+        case-sensitive unique stays as the exact-name lookup index.
+
+        Postgres-only: H2 has no functional indexes, so the Docker-free test run
+        keeps only uq_ingredient_name. Production uniqueness is proven by
+        mvn verify -Ppostgres.
+    -->
+    <changeSet id="0002-ingredient-name-lower-unique" author="recipes" dbms="postgresql">
+        <sql>
+            CREATE UNIQUE INDEX uq_ingredient_name_lower ON ingredient (LOWER(name))
+        </sql>
+        <rollback>
+            <dropIndex indexName="uq_ingredient_name_lower" tableName="ingredient"/>
+        </rollback>
     </changeSet>
 
 </databaseChangeLog>

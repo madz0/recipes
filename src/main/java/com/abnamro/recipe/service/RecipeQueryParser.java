@@ -1,4 +1,4 @@
-package com.abnamro.recipe.web;
+package com.abnamro.recipe.service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,9 +16,9 @@ import com.abnamro.recipe.service.exception.InvalidDietProfileException;
 
 /**
  * Parses the recipe-search query parameters ({@code dietProfiles}, {@code ingredients})
- * into the filter shapes consumed by {@code RecipeSearchCriteria}. This is parsing
- * logic with business rules (sign handling, cancel-out, unknown-token rejection), not
- * object mapping, so it lives outside the MapStruct {@link RecipeMapper}.
+ * into the filter shapes consumed by {@code RecipeSearchCriteria}. This is the
+ * list-recipes use case (sign handling, cancel-out, unknown-token rejection), not
+ * HTTP mapping, so it lives next to {@link RecipeService}.
  */
 final class RecipeQueryParser {
 
