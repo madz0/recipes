@@ -355,3 +355,10 @@ If you use a non-default Colima profile, confirm the socket path with
     marker** row that other pods check and skip; and/or
   - switch the write to `INSERT ... ON CONFLICT (name) DO NOTHING/UPDATE` so
     concurrent inserts are harmless and duplicate work is cheaply skipped.
+
+- **Detect lost updates on recipe PUT.** Today `PUT /api/v1/recipes/{id}` is
+  last-write-wins: two admins who GET then PUT can silently overwrite each other.
+  Add optimistic locking on the `Recipe` aggregate (`version` column + Spring Data
+  JDBC `@Version`), return `version` on read, require it on update, and map a
+  mismatch to `409 Conflict` (`problem+json`) so the client re-reads and retries.
+  Ingredients have no update API, so they stay out of scope.
