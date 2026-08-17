@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -223,6 +225,144 @@ class RecipeApiIT {
         ResponseEntity<String> unknown = rest.getForEntity(RECIPES + "/" + UUID.randomUUID(), String.class);
         assertThat(unknown.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(unknown.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    // --- update ------------------------------------------------------------
+
+    /**
+     * Given a meat recipe, when it is fully replaced via PUT with a new name,
+     * servings, instructions and a vegetable-only ingredient set, then the API
+     * returns 200 with the new values and a <strong>re-derived</strong> dietary
+     * profile (now vegetarian, no longer meat). A subsequent GET reflects the same
+     * change, and — crucially — the dietary filters follow: the recipe now appears
+     * under {@code dietProfiles=vegetarian} and no longer under {@code =meat},
+     * proving the stored {@code dietary_profile_attributes} was updated in step, not
+     * left stale.
+     */
+    @DisplayName("PUT replaces the recipe and re-derives the dietary profile (search follows)")
+    @Test
+    void updateReplacesFieldsAndRederivesProfile() {
+        Ingredient meat = createIngredient(IngredientType.MEAT);
+        Ingredient vegetable = createIngredient(IngredientType.VEGETABLE);
+        UUID id = createRecipe(recipeRequest("Sear the steak.", meat.publicId())).getId();
+        assertThat(listIds("?dietProfiles=meat&size=100")).contains(id);
+
+        RecipeCreateRequest update = new RecipeCreateRequest(
+                "IT updated " + UUID.randomUUID(), 8, "Roast the veg in the oven.",
+                List.of(selection(vegetable.publicId())));
+
+        ResponseEntity<Recipe> response = rest.exchange(
+                RECIPES + "/" + id, HttpMethod.PUT, new HttpEntity<>(update), Recipe.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Recipe body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.getId()).isEqualTo(id);
+        assertThat(body.getName()).isEqualTo(update.getName());
+        assertThat(body.getServings()).isEqualTo(8);
+        assertThat(body.getIngredients()).singleElement()
+                .satisfies(ri -> assertThat(ri.getIngredientId()).isEqualTo(vegetable.publicId()));
+        assertThat(body.getDietaryProfile().getVegetarian()).isTrue();
+        assertThat(body.getDietaryProfile().getMeat()).isFalse();
+
+        // The change is persisted and visible on a fresh read.
+        Recipe reread = rest.getForEntity(RECIPES + "/" + id, Recipe.class).getBody();
+        assertThat(reread).isNotNull();
+        assertThat(reread.getServings()).isEqualTo(8);
+        assertThat(reread.getDietaryProfile().getVegetarian()).isTrue();
+
+        // Dietary search reflects the update: now vegetarian, no longer meat.
+        assertThat(listIds("?dietProfiles=vegetarian&size=100")).contains(id);
+        assertThat(listIds("?dietProfiles=meat&size=100")).doesNotContain(id);
+    }
+
+    /**
+     * Given an id that does not exist, when a recipe is updated via PUT then the API
+     * returns 404 with an {@code application/problem+json} body.
+     */
+    @DisplayName("PUT to an unknown recipe id → 404 problem+json")
+    @Test
+    void updateUnknownRecipeReturns404() {
+        Ingredient vegetable = createIngredient(IngredientType.VEGETABLE);
+        RecipeCreateRequest update = recipeRequest("Steam.", vegetable.publicId());
+
+        ResponseEntity<String> response = rest.exchange(
+                RECIPES + "/" + UUID.randomUUID(), HttpMethod.PUT, new HttpEntity<>(update), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    /**
+     * Given an existing recipe, when it is updated with a selection referencing an
+     * ingredient id not in the catalog, then the API rejects it with 400 Bad Request
+     * and an {@code application/problem+json} body (same rule as create).
+     */
+    @DisplayName("PUT with an unknown ingredient id → 400 problem+json")
+    @Test
+    void updateWithUnknownIngredientReturns400ProblemJson() {
+        Ingredient vegetable = createIngredient(IngredientType.VEGETABLE);
+        UUID id = createRecipe(recipeRequest("Steam.", vegetable.publicId())).getId();
+        RecipeCreateRequest update = recipeRequest("Mix well.", UUID.randomUUID());
+
+        ResponseEntity<String> response = rest.exchange(
+                RECIPES + "/" + id, HttpMethod.PUT, new HttpEntity<>(update), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    /**
+     * Given an existing recipe, when it is updated with a blank name, then the API
+     * rejects it with 400 Bad Request (name is mandatory, same as create).
+     */
+    @DisplayName("PUT with a blank name → 400")
+    @Test
+    void updateWithBlankNameReturns400() {
+        Ingredient vegetable = createIngredient(IngredientType.VEGETABLE);
+        UUID id = createRecipe(recipeRequest("Steam.", vegetable.publicId())).getId();
+        RecipeCreateRequest update =
+                new RecipeCreateRequest("", 2, "Chop.", List.of(selection(vegetable.publicId())));
+
+        ResponseEntity<String> response = rest.exchange(
+                RECIPES + "/" + id, HttpMethod.PUT, new HttpEntity<>(update), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    // --- delete ------------------------------------------------------------
+
+    /**
+     * Given a freshly created recipe, when it is deleted then the API returns 204 No
+     * Content and a subsequent GET returns 404 — the recipe (and its ingredient join
+     * rows) are gone.
+     */
+    @DisplayName("DELETE removes the recipe: 204, then GET → 404")
+    @Test
+    void deleteRemovesRecipe() {
+        Ingredient vegetable = createIngredient(IngredientType.VEGETABLE);
+        UUID id = createRecipe(recipeRequest("Steam gently.", vegetable.publicId())).getId();
+
+        ResponseEntity<Void> response = rest.exchange(
+                RECIPES + "/" + id, HttpMethod.DELETE, null, Void.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+        ResponseEntity<String> afterDelete = rest.getForEntity(RECIPES + "/" + id, String.class);
+        assertThat(afterDelete.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    /**
+     * Given an id that does not exist, when a recipe is deleted then the API returns
+     * 404 with an {@code application/problem+json} body.
+     */
+    @DisplayName("DELETE of an unknown recipe id → 404 problem+json")
+    @Test
+    void deleteUnknownRecipeReturns404() {
+        ResponseEntity<String> response = rest.exchange(
+                RECIPES + "/" + UUID.randomUUID(), HttpMethod.DELETE, null, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
     }
 
     // --- list & filters ----------------------------------------------------

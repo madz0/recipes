@@ -55,6 +55,25 @@ public class RecipeController implements RecipesApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Recipe> updateRecipe(UUID id, RecipeCreateRequest request) {
+        var updated = service.update(
+                id,
+                request.getName(),
+                request.getServings(),
+                request.getInstructions(),
+                mapper.toDomainSelections(request.getIngredients()));
+        return ResponseEntity.ok(mapper.toDto(updated));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteRecipe(UUID id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<RecipePage> listRecipes(Integer page, Integer size, List<String> dietProfiles,
                                                   Integer servings, List<String> ingredients,

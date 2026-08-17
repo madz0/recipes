@@ -69,6 +69,57 @@ public class RecipeService {
     @Transactional
     public RecipeDto create(String name, int servings, String instructions,
                              List<IngredientSelection> selections) {
+        ResolvedSelections resolved = resolveSelections(selections);
+        DietaryProfile profile = deriveProfile(resolved.byId().values());
+        Recipe saved = recipes.save(new Recipe(
+                null, UUID.randomUUID(), name, servings, instructions, profile,
+                resolved.recipeIngredients()));
+        return toView(saved, resolved.byId());
+    }
+
+    /**
+     * Updates the recipe with the given public UUID, replacing its {@code name},
+     * {@code servings}, {@code instructions}, and full ingredient set with the
+     * supplied values (full-replace semantics). Like {@link #create}, every
+     * selected ingredient must reference an existing catalog ingredient (an unknown
+     * id yields a {@link RecipeIngredientNotFoundException}, 400); an unknown recipe
+     * id yields a {@link RecipeNotFoundException} (404). The dietary profile is
+     * re-derived from the new selection and re-stored in this same transaction, so
+     * {@code dietary_profile_attributes} never drifts from the recipe's ingredients.
+     */
+    @Transactional
+    public RecipeDto update(UUID publicId, String name, int servings, String instructions,
+                            List<IngredientSelection> selections) {
+        Recipe existing = recipes.findByPublicId(publicId)
+                .orElseThrow(() -> new RecipeNotFoundException(publicId));
+        ResolvedSelections resolved = resolveSelections(selections);
+        DietaryProfile profile = deriveProfile(resolved.byId().values());
+        Recipe saved = recipes.save(new Recipe(
+                existing.id(), existing.publicId(), name, servings, instructions, profile,
+                resolved.recipeIngredients()));
+        return toView(saved, resolved.byId());
+    }
+
+    /** Deletes the recipe with the given public UUID, or throws if none exists. */
+    @Transactional
+    public void delete(UUID publicId) {
+        Recipe existing = recipes.findByPublicId(publicId)
+                .orElseThrow(() -> new RecipeNotFoundException(publicId));
+        recipes.delete(existing);
+    }
+
+    /** The catalog ingredients a selection resolves to, plus the join rows to persist. */
+    private record ResolvedSelections(Map<Long, Ingredient> byId, Set<RecipeIngredient> recipeIngredients) {
+    }
+
+    /**
+     * Resolves each {@link IngredientSelection} against the catalog by its public id,
+     * building the (internal-id → {@link Ingredient}) lookup and the
+     * {@link RecipeIngredient} join rows in one pass. An unknown ingredient id yields
+     * a {@link RecipeIngredientNotFoundException} (400). Shared by {@link #create} and
+     * {@link #update} so both apply identical resolution and error behavior.
+     */
+    private ResolvedSelections resolveSelections(List<IngredientSelection> selections) {
         List<UUID> requestedIds = selections.stream()
                 .map(IngredientSelection::ingredientId)
                 .toList();
@@ -86,11 +137,7 @@ public class RecipeService {
             recipeIngredients.add(new RecipeIngredient(
                     AggregateReference.to(ingredient.id()), selection.quantity(), selection.unit()));
         }
-
-        DietaryProfile profile = deriveProfile(resolved.values());
-        Recipe saved = recipes.save(new Recipe(
-                null, UUID.randomUUID(), name, servings, instructions, profile, recipeIngredients));
-        return toView(saved, resolved);
+        return new ResolvedSelections(resolved, recipeIngredients);
     }
 
     /** Returns the recipe with the given public UUID, or throws if none exists. */
@@ -169,12 +216,13 @@ public class RecipeService {
      * <p><strong>Source of truth for search.</strong> The result is stored on
      * {@code recipe.dietary_profile_attributes}, and {@code RecipeSearchRepository}
      * filters dietary criteria directly against that column (no live ingredient join).
-     * The column is therefore authoritative only as long as it is kept in sync: today
-     * it is written once at {@link #create} and there is no recipe-update or
-     * ingredient-retype path, so it cannot drift. If such a path is ever added it MUST
-     * recompute and re-store this profile in the same transaction (and an ingredient
-     * type change must backfill every affected recipe), or dietary search will silently
-     * return stale results.
+     * The column is authoritative only as long as it is kept in sync: it is written at
+     * {@link #create} and re-derived and re-stored at {@link #update}, both within the
+     * same transaction as the ingredient change, so it cannot drift from the recipe's
+     * ingredients. The one path that would still bypass this is changing an existing
+     * catalog ingredient's {@link IngredientType}; there is deliberately no such
+     * ingredient-retype endpoint, and if one is ever added it MUST backfill every
+     * affected recipe's profile, or dietary search will silently return stale results.
      */
     private static DietaryProfile deriveProfile(Iterable<Ingredient> ingredients) {
         EnumSet<IngredientType> presentTypes = EnumSet.noneOf(IngredientType.class);

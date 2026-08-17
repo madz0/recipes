@@ -3,7 +3,8 @@ info:
   title: Recipes — Recipe API
   description: >-
     API-first contract for managing recipes in the Recipes service. Supports
-    creating a recipe, fetching a single recipe, and listing/filtering recipes.
+    creating a recipe, fetching a single recipe, listing/filtering recipes, and
+    updating or removing a recipe by its id.
 
     A recipe is identified by an opaque UUID surrogate (`id`); the internal
     database primary key is never exposed. Each recipe carries its own mandatory
@@ -266,6 +267,57 @@ paths:
                   gluten: false
                   wheat: false
                   nut: false
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Recipes]
+      operationId: updateRecipe
+      summary: Update a recipe (full replace)
+      description: >-
+        Replaces the recipe identified by `id` in full: `name`, `servings`,
+        `instructions`, and the complete set of selected ingredients are all
+        overwritten with the request body (the same payload as create). The
+        server re-derives the `dietaryProfile` from the new ingredient selection,
+        so it stays consistent with the ingredients. Every field is mandatory and
+        at least one ingredient must be selected; an unknown ingredient id results
+        in `400 Bad Request`, and an unknown recipe id in `404 Not Found`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeCreateRequest'
+            example:
+              name: Oven-roasted vegetable traybake
+              servings: 6
+              instructions: >-
+                Chop the vegetables, toss with oil, and roast in the oven at
+                200°C for 40 minutes.
+              ingredients:
+                - ingredientId: 018f7a1d-2c44-7e02-9b71-6a90de12f3c4
+                  quantity: 400
+                  unit: GRAMS
+                - ingredientId: 018f7a1f-88bb-7e66-c1d3-af2e5c9b3e78
+                  quantity: 700
+                  unit: GRAMS
+      responses:
+        '200':
+          description: The updated recipe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Recipes]
+      operationId: deleteRecipe
+      summary: Delete a recipe by id
+      responses:
+        '204':
+          description: The recipe was deleted (no content).
         '404':
           $ref: '#/components/responses/NotFound'
 

@@ -278,7 +278,7 @@ test. The full Liquibase changelog is applied in both cases.
 
 ### Testcontainers on Colima
 
-This project uses **Colima** as the Docker engine. Export the socket env vars so
+If using **Colima** as the Docker engine. Export the socket env vars so
 Testcontainers can find it before running against PostgreSQL:
 
 ```sh
