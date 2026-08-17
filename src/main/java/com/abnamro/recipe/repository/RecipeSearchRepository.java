@@ -77,12 +77,19 @@ public class RecipeSearchRepository {
         List<String> predicates = new ArrayList<>();
 
         criteria.dietaryFilters().forEach((flag, wantTrue) -> {
-            String paramName = "dietTypes_" + flag.name();
-            String typeExists = "EXISTS (SELECT 1 FROM recipe_ingredient ri"
-                    + " JOIN ingredient i ON i.id = ri.ingredient"
-                    + " WHERE ri.recipe_id = r.id AND i.type IN (:" + paramName + "))";
-            predicates.add(flag.requiresPresence(wantTrue) ? typeExists : "NOT " + typeExists);
-            params.addValue(paramName, flag.types().stream().map(Enum::name).toList());
+            String paramName = "diet_" + flag.name();
+            if (postgres) {
+                // jsonb containment against the denormalized profile column. Every flag key
+                // is always present with an explicit boolean, so {"meat":false} containment
+                // correctly matches recipes whose meat flag is false — no negation needed.
+                predicates.add("r.dietary_profile_attributes @> CAST(:" + paramName + " AS jsonb)");
+                params.addValue(paramName, "{\"" + flag.token() + "\":" + wantTrue + "}");
+            } else {
+                // H2 stores the profile as compact JSON text (explicit booleans, no
+                // whitespace), so a deterministic substring match expresses flag == wantTrue.
+                predicates.add("r.dietary_profile_attributes LIKE :" + paramName);
+                params.addValue(paramName, "%\"" + flag.token() + "\":" + wantTrue + "%");
+            }
         });
 
         if (criteria.servings() != null) {

@@ -282,6 +282,23 @@ class RecipeApiIT {
     }
 
     /**
+     * Given a dairy recipe (vegetarian but not vegan) and a meat recipe, when the list
+     * is filtered by {@code dietProfiles=-meat} the dairy recipe is returned and the meat
+     * one excluded. This pins that {@code meat=false} containment matches a non-meat recipe
+     * regardless of its other flags — not only vegetable-only (fully vegan) recipes.
+     */
+    @DisplayName("dietProfiles=-meat returns a non-vegan (dairy) recipe, excludes meat")
+    @Test
+    void negatedMeatReturnsNonVeganDairyRecipe() {
+        Ingredient dairy = createIngredient(IngredientType.DAIRY);
+        Ingredient meat = createIngredient(IngredientType.MEAT);
+        UUID cheesy = createRecipe(recipeRequest("Melt the cheese.", dairy.publicId())).getId();
+        UUID carnivore = createRecipe(recipeRequest("Sear the steak.", meat.publicId())).getId();
+
+        assertThat(listIds("?dietProfiles=-meat&size=100")).contains(cheesy).doesNotContain(carnivore);
+    }
+
+    /**
      * Given a nut recipe and a nut-free recipe, {@code dietProfiles=-nut} excludes the
      * nut one, and {@code dietProfiles=-gluten} keeps a gluten-free recipe while
      * dropping a wheat (gluten) one.
@@ -347,11 +364,11 @@ class RecipeApiIT {
 
     /**
      * Given a recipe containing ingredients a and b, when the list is filtered by
-     * {@code includeIngredients} for both a and b it is included; but when filtered
-     * for a plus a third ingredient c the recipe lacks, it is excluded — the filter
-     * requires ALL named ingredients to be present, not any.
+     * {@code ingredients=a,b} (both bare = must contain) it is included; but when filtered
+     * for a plus a third ingredient c the recipe lacks, it is excluded — bare names require
+     * ALL to be present, not any.
      */
-    @DisplayName("includeIngredients requires ALL named ingredients to be present")
+    @DisplayName("ingredients (bare names) require ALL to be present")
     @Test
     void filterByIncludeIngredientsRequiresAll() {
         Ingredient a = createIngredient(IngredientType.VEGETABLE);
@@ -359,28 +376,46 @@ class RecipeApiIT {
         Ingredient c = createIngredient(IngredientType.VEGETABLE);
         Recipe recipe = createRecipe(recipeRequest("Combine a and b.", a.publicId(), b.publicId()));
 
-        assertThat(listIds("?size=100&includeIngredients=" + enc(a.name()) + "&includeIngredients=" + enc(b.name())))
+        assertThat(listIds("?size=100&ingredients=" + enc(a.name()) + "," + enc(b.name())))
                 .contains(recipe.getId());
         // Requires ALL: adding an ingredient the recipe lacks excludes it.
-        assertThat(listIds("?size=100&includeIngredients=" + enc(a.name()) + "&includeIngredients=" + enc(c.name())))
+        assertThat(listIds("?size=100&ingredients=" + enc(a.name()) + "," + enc(c.name())))
                 .doesNotContain(recipe.getId());
     }
 
     /**
      * Given a recipe that uses ingredient a, when the list is filtered by
-     * {@code excludeIngredients=a} the recipe is removed from the results; and when
-     * filtered to exclude an ingredient the recipe does not use, it is still
-     * returned.
+     * {@code ingredients=-a} (negated = must not contain) the recipe is removed; and when
+     * filtered to exclude an ingredient the recipe does not use, it is still returned.
      */
-    @DisplayName("excludeIngredients removes recipes containing a named ingredient")
+    @DisplayName("ingredients (negated names) remove recipes containing that ingredient")
     @Test
     void filterByExcludeIngredientsRemovesMatches() {
         Ingredient a = createIngredient(IngredientType.VEGETABLE);
         Recipe recipe = createRecipe(recipeRequest("Uses a.", a.publicId()));
 
-        assertThat(listIds("?size=100&excludeIngredients=" + enc(a.name()))).doesNotContain(recipe.getId());
-        assertThat(listIds("?size=100&excludeIngredients=" + enc("IT ingredient no-such-" + UUID.randomUUID())))
+        assertThat(listIds("?size=100&ingredients=-" + enc(a.name()))).doesNotContain(recipe.getId());
+        assertThat(listIds("?size=100&ingredients=-" + enc("IT ingredient no-such-" + UUID.randomUUID())))
                 .contains(recipe.getId());
+    }
+
+    /**
+     * Given a recipe that uses ingredient a but not b, when the list is filtered by
+     * {@code ingredients=a,-b} (contain a AND not contain b) the recipe is returned;
+     * flipping to {@code ingredients=-a,b} (not a AND contain b) excludes it — the single
+     * param combines include and exclude just like {@code dietProfiles}.
+     */
+    @DisplayName("ingredients combines include and exclude in one param (a,-b)")
+    @Test
+    void filterByIngredientsCombinesIncludeAndExclude() {
+        Ingredient a = createIngredient(IngredientType.VEGETABLE);
+        Ingredient b = createIngredient(IngredientType.VEGETABLE);
+        Recipe recipe = createRecipe(recipeRequest("Uses a only.", a.publicId()));
+
+        assertThat(listIds("?size=100&ingredients=" + enc(a.name()) + ",-" + enc(b.name())))
+                .contains(recipe.getId());
+        assertThat(listIds("?size=100&ingredients=-" + enc(a.name()) + "," + enc(b.name())))
+                .doesNotContain(recipe.getId());
     }
 
     /**

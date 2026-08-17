@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
 import com.abnamro.recipe.model.DietaryFlag;
 import com.abnamro.recipe.service.InvalidDietProfileException;
 
-/** Unit tests for {@link RecipeMapper#toDietaryFilters} token parsing. */
-@DisplayName("RecipeMapper.toDietaryFilters — dietProfiles token parsing")
+/** Unit tests for {@link RecipeMapper} query-token parsing (dietProfiles and ingredients). */
+@DisplayName("RecipeMapper — dietProfiles & ingredients token parsing")
 class RecipeMapperTest {
 
     @DisplayName("Bare token requires true, '-' token requires false")
@@ -65,5 +65,69 @@ class RecipeMapperTest {
     void unknownTokenIsRejected() {
         assertThatThrownBy(() -> RecipeMapper.toDietaryFilters(List.of("bogus")))
                 .isInstanceOf(InvalidDietProfileException.class);
+    }
+
+    // --- toIngredientFilters (same form as dietProfiles) ------------------
+
+    @DisplayName("ingredients: bare name → include, '-' name → exclude")
+    @Test
+    void ingredientsParsesSignsIntoIncludeExclude() {
+        RecipeMapper.IngredientFilters filters =
+                RecipeMapper.toIngredientFilters(List.of("Potatoes", "-Salmon"));
+
+        assertThat(filters.include()).containsExactly("potatoes");
+        assertThat(filters.exclude()).containsExactly("salmon");
+    }
+
+    @DisplayName("ingredients: a single comma-separated value is split into multiple tokens")
+    @Test
+    void ingredientsSplitsCommaSeparatedValue() {
+        RecipeMapper.IngredientFilters filters =
+                RecipeMapper.toIngredientFilters(List.of("Potatoes,Carrot,-Salmon"));
+
+        assertThat(filters.include()).containsExactlyInAnyOrder("potatoes", "carrot");
+        assertThat(filters.exclude()).containsExactly("salmon");
+    }
+
+    @DisplayName("ingredients: the same name with both signs cancels out (case-insensitive)")
+    @Test
+    void ingredientsBothSignsCancelOut() {
+        RecipeMapper.IngredientFilters filters =
+                RecipeMapper.toIngredientFilters(List.of("Egg", "-egg"));
+
+        assertThat(filters.include()).isEmpty();
+        assertThat(filters.exclude()).isEmpty();
+    }
+
+    @DisplayName("ingredients: a cancelled name stays cancelled even if requested again")
+    @Test
+    void ingredientsCancelledNameStaysCancelled() {
+        RecipeMapper.IngredientFilters filters =
+                RecipeMapper.toIngredientFilters(List.of("Egg,-Egg,Egg"));
+
+        assertThat(filters.include()).isEmpty();
+        assertThat(filters.exclude()).isEmpty();
+    }
+
+    @DisplayName("ingredients: a repeated name (same sign) is de-duplicated")
+    @Test
+    void ingredientsDeduplicatesRepeatedName() {
+        RecipeMapper.IngredientFilters filters =
+                RecipeMapper.toIngredientFilters(List.of("Potatoes,potatoes"));
+
+        assertThat(filters.include()).containsExactly("potatoes");
+        assertThat(filters.exclude()).isEmpty();
+    }
+
+    @DisplayName("ingredients: null or empty input yields empty include/exclude")
+    @Test
+    void ingredientsNullOrEmptyYieldsNoFilters() {
+        RecipeMapper.IngredientFilters fromNull = RecipeMapper.toIngredientFilters(null);
+        assertThat(fromNull.include()).isEmpty();
+        assertThat(fromNull.exclude()).isEmpty();
+
+        RecipeMapper.IngredientFilters fromEmpty = RecipeMapper.toIngredientFilters(List.of());
+        assertThat(fromEmpty.include()).isEmpty();
+        assertThat(fromEmpty.exclude()).isEmpty();
     }
 }

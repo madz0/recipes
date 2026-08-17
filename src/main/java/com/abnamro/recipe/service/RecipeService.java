@@ -161,6 +161,16 @@ public class RecipeService {
      * ingredient-type rule, so this collapses to collecting the set of types
      * present and letting {@link DietaryProfile#from(Set)} evaluate every flag —
      * the same rules the search filter uses.
+     *
+     * <p><strong>Source of truth for search.</strong> The result is stored on
+     * {@code recipe.dietary_profile_attributes}, and {@code RecipeSearchRepository}
+     * filters dietary criteria directly against that column (no live ingredient join).
+     * The column is therefore authoritative only as long as it is kept in sync: today
+     * it is written once at {@link #create} and there is no recipe-update or
+     * ingredient-retype path, so it cannot drift. If such a path is ever added it MUST
+     * recompute and re-store this profile in the same transaction (and an ingredient
+     * type change must backfill every affected recipe), or dietary search will silently
+     * return stale results.
      */
     private static DietaryProfile deriveProfile(Iterable<Ingredient> ingredients) {
         EnumSet<IngredientType> presentTypes = EnumSet.noneOf(IngredientType.class);

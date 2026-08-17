@@ -51,11 +51,12 @@ public class RecipeController implements RecipesApi {
 
     @Override
     public ResponseEntity<RecipePage> listRecipes(Integer page, Integer size, List<String> dietProfiles,
-                                                  Integer servings, List<String> includeIngredients,
-                                                  List<String> excludeIngredients, String instructionsContains) {
+                                                  Integer servings, List<String> ingredients,
+                                                  String instructionsContains) {
+        var parsedIngredients = RecipeMapper.toIngredientFilters(ingredients);
         var criteria = new RecipeSearchCriteria(
                 RecipeMapper.toDietaryFilters(dietProfiles),
-                servings, includeIngredients, excludeIngredients, instructionsContains);
+                servings, parsedIngredients.include(), parsedIngredients.exclude(), instructionsContains);
         var result = service.list(page, size, criteria);
         return ResponseEntity.ok(RecipeMapper.toPageDto(result));
     }

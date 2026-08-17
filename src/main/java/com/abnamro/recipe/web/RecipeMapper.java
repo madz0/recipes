@@ -1,9 +1,12 @@
 package com.abnamro.recipe.web;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -92,6 +95,60 @@ final class RecipeMapper {
         return java.util.Arrays.stream(DietaryFlag.values())
                 .map(DietaryFlag::token)
                 .collect(Collectors.joining(", "));
+    }
+
+    /** Include + exclude ingredient names parsed from the unified {@code ingredients} param. */
+    record IngredientFilters(List<String> include, List<String> exclude) {
+    }
+
+    /**
+     * Parses the {@code ingredients} query tokens into include/exclude name lists, in the same
+     * form as {@link #toDietaryFilters}: each token is an ingredient name optionally prefixed
+     * with {@code -} (negation). A bare name requires the recipe to <em>contain</em> that
+     * ingredient; {@code -name} requires it to <em>not contain</em> it. Names are compared
+     * case-insensitively; a name listed with both signs cancels out (dropped — no restriction).
+     * Returns empty lists when there are no tokens. The final lower-casing/dedup for the SQL is
+     * done by {@code RecipeSearchRepository}.
+     */
+    static IngredientFilters toIngredientFilters(List<String> ingredients) {
+        Map<String, Boolean> effective = new LinkedHashMap<>(); // lower(name) -> include(true)/exclude(false)
+        if (ingredients == null) {
+            return new IngredientFilters(List.of(), List.of());
+        }
+        Set<String> cancelled = new HashSet<>();
+        for (String raw : ingredients) {
+            if (raw == null) {
+                continue;
+            }
+            for (String part : raw.split(",")) {
+                String token = part.trim();
+                if (token.isEmpty()) {
+                    continue;
+                }
+                boolean negated = token.startsWith("-");
+                String name = negated ? token.substring(1).trim() : token;
+                if (name.isEmpty()) {
+                    continue;
+                }
+                String key = name.toLowerCase(Locale.ROOT);
+                boolean include = !negated;
+                if (cancelled.contains(key)) {
+                    continue;
+                }
+                Boolean existing = effective.get(key);
+                if (existing == null) {
+                    effective.put(key, include);
+                } else if (existing != include) {
+                    // Same name required to be both present and absent → the client doesn't care.
+                    effective.remove(key);
+                    cancelled.add(key);
+                }
+            }
+        }
+        List<String> include = new ArrayList<>();
+        List<String> exclude = new ArrayList<>();
+        effective.forEach((name, isInclude) -> (isInclude ? include : exclude).add(name));
+        return new IngredientFilters(include, exclude);
     }
 
     /** A recipe view with its pre-joined ingredients → the API {@code Recipe} DTO. */

@@ -44,11 +44,6 @@ public enum DietaryFlag {
         this.token = name().toLowerCase(Locale.ROOT);
     }
 
-    /** The ingredient types this flag is defined by. */
-    public Set<IngredientType> types() {
-        return types;
-    }
-
     /** The lowercase wire token for this flag — its JSON key and {@code dietProfiles} value. */
     public String token() {
         return token;
@@ -70,15 +65,5 @@ public enum DietaryFlag {
     public boolean evaluate(Set<IngredientType> present) {
         boolean anyPresent = present.stream().anyMatch(types::contains);
         return (polarity == Polarity.PRESENT) == anyPresent;
-    }
-
-    /**
-     * Whether requiring this flag to equal {@code flagValue} means the recipe must
-     * <em>contain</em> the flag's types ({@code true}) or must <em>not</em> contain
-     * them ({@code false}). Drives the {@code EXISTS} vs {@code NOT EXISTS} choice in
-     * the search SQL.
-     */
-    public boolean requiresPresence(boolean flagValue) {
-        return (polarity == Polarity.PRESENT) == flagValue;
     }
 }

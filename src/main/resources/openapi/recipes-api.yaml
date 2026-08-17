@@ -40,10 +40,10 @@ paths:
 
         - `?dietProfiles=vegetarian,-gluten` — vegetarian **and** gluten-free.
 
-        - `?servings=4&includeIngredients=Potatoes` — recipes that serve 4 and
+        - `?servings=4&ingredients=Potatoes` — recipes that serve 4 and
           include "Potatoes".
 
-        - `?excludeIngredients=Salmon&instructionsContains=oven` — recipes that
+        - `?ingredients=-Salmon&instructionsContains=oven` — recipes that
           do not use "Salmon" and mention "oven" in their instructions.
       parameters:
         - $ref: '#/components/parameters/PageParam'
@@ -84,38 +84,31 @@ paths:
             format: int32
             minimum: 1
           example: 4
-        - name: includeIngredients
+        - name: ingredients
           in: query
           required: false
           description: >-
-            Restrict to recipes that contain **all** of the given ingredients,
-            matched by ingredient name (case-insensitive, exact match). Repeat
-            the parameter to require several ingredients.
+            Restrict by ingredient content. Comma-separated list of ingredient
+            names, each optionally negated with a leading `-`: a bare name requires
+            the recipe to **contain** that ingredient, `-name` requires it to
+            **not contain** it. Names are matched case-insensitively and exactly.
+            For example `?ingredients=Potatoes,Carrot,-Salmon` means recipes that
+            contain both Potatoes **and** Carrot but **not** Salmon.
+
+
+            The names are AND-combined with each other and with the other filters:
+            **all** bare names must be present and **none** of the negated names may
+            be. Listing the **same** name with both signs (e.g. `Egg,-Egg`) cancels
+            out and imposes no restriction for that name.
           style: form
-          explode: true
+          explode: false
           schema:
             type: array
             items:
               type: string
               minLength: 1
               maxLength: 255
-          example: [Potatoes]
-        - name: excludeIngredients
-          in: query
-          required: false
-          description: >-
-            Restrict to recipes that contain **none** of the given ingredients,
-            matched by ingredient name (case-insensitive, exact match). Repeat
-            the parameter to exclude several ingredients.
-          style: form
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-              minLength: 1
-              maxLength: 255
-          example: [Salmon]
+          example: [Potatoes, "-Salmon"]
         - name: instructionsContains
           in: query
           required: false

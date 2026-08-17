@@ -95,6 +95,27 @@
         </rollback>
     </changeSet>
 
+    <!--
+        GIN index backing the dietary_profile_attributes containment filter
+        (r.dietary_profile_attributes @> :flag in RecipeSearchRepository). jsonb_path_ops
+        is the smaller, faster operator class for the @> containment queries the dietary
+        search uses. This lets a dietary filter be a bitmap index scan on the recipe table
+        instead of a correlated join over recipe_ingredient/ingredient.
+
+        Postgres-only (like idx_recipe_search_vector): on H2 the column is VARCHAR JSON text
+        and the dietary search falls back to a LIKE predicate, so no index applies and H2
+        skips this changeSet.
+    -->
+    <changeSet id="0001-recipe-dietary-profile-gin" author="recipes" dbms="postgresql">
+        <sql>
+            CREATE INDEX idx_recipe_dietary_profile ON recipe
+                USING gin (dietary_profile_attributes jsonb_path_ops)
+        </sql>
+        <rollback>
+            <sql>DROP INDEX IF EXISTS idx_recipe_dietary_profile</sql>
+        </rollback>
+    </changeSet>
+
     <changeSet id="0001-create-recipe-ingredient" author="recipes">
         <createTable tableName="recipe_ingredient">
             <column name="recipe_id" type="BIGINT">
