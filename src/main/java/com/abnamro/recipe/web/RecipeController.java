@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -30,6 +31,7 @@ public class RecipeController implements RecipesApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Recipe> createRecipe(RecipeCreateRequest request) {
         var created = service.create(
                 request.getName(),
@@ -45,11 +47,13 @@ public class RecipeController implements RecipesApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Recipe> getRecipe(UUID id) {
         return ResponseEntity.ok(RecipeMapper.toDto(service.get(id)));
     }
 
     @Override
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<RecipePage> listRecipes(Integer page, Integer size, List<String> dietProfiles,
                                                   Integer servings, List<String> ingredients,
                                                   String instructionsContains) {

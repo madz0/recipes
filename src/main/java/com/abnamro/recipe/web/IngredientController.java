@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -29,6 +30,7 @@ public class IngredientController implements IngredientsApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Ingredient> createIngredient(IngredientCreateRequest request) {
         var created = service.create(request.getName(), IngredientMapper.toDomainType(request.getType()));
         Ingredient dto = IngredientMapper.toDto(created);
@@ -40,17 +42,20 @@ public class IngredientController implements IngredientsApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<IngredientPage> listIngredients(Integer page, Integer size, IngredientType type) {
         var result = service.list(page, size, IngredientMapper.toDomainType(type));
         return ResponseEntity.ok(IngredientMapper.toPageDto(result));
     }
 
     @Override
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Ingredient> getIngredient(UUID id) {
         return ResponseEntity.ok(IngredientMapper.toDto(service.get(id)));
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteIngredient(UUID id) {
         service.delete(id);
         return ResponseEntity.noContent().build();

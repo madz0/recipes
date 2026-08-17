@@ -37,8 +37,14 @@ class IngredientApiIT {
 
     private static final String BASE = "/api/v1/ingredients";
 
-    @Autowired
     private TestRestTemplate rest;
+
+    // Wrap the injected template with the demo credentials once, so every request in this
+    // class is authenticated (the user holds ADMIN, covering the write endpoints too).
+    @Autowired
+    void configureAuth(TestRestTemplate template) {
+        this.rest = template.withBasicAuth("recipes", "recipes-demo");
+    }
 
     private static String uniqueName() {
         return "Test ingredient " + UUID.randomUUID();

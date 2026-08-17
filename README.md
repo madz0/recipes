@@ -77,6 +77,70 @@ skips them entirely. On H2, `RecipeSearchRepository` **falls back** to a portabl
 case-insensitive `LIKE`, detected once from the datasource metadata — so the same test
 suite passes on both databases, and real full-text search is exercised under `-Ppostgres`.
 
+## Security
+
+Authentication is **deliberately minimal** — enough to show the service is not left open,
+not a production identity system. It is HTTP Basic with a single built-in user configured
+via `spring.security.user.*` in `application.properties`; the wiring lives in
+`com.abnamro.recipe.config.SecurityConfig` (a stateless filter chain — CSRF disabled, no
+session — requiring every request to be authenticated).
+
+### Authentication
+
+| | |
+|---|---|
+| Scheme | HTTP Basic |
+| User | `recipes` |
+| Password | `recipes-demo` (local/demo default) |
+| Roles | `USER`, `ADMIN` (the one user holds **all** roles) |
+
+Supply the password per-environment via the `SPRING_SECURITY_USER_PASSWORD` environment
+variable; the checked-in value is for local use only. A request without valid credentials
+is rejected with **401 Unauthorized**.
+
+```sh
+# authenticated
+curl -u recipes:recipes-demo http://localhost:8080/api/v1/ingredients
+
+# no credentials → 401
+curl -i http://localhost:8080/api/v1/ingredients
+```
+
+### Authorization
+
+Authorization is enforced with method-level `@PreAuthorize` on the controllers
+(`@EnableMethodSecurity`), mapping each action to the role appropriate for it — reads
+require `USER`, writes require `ADMIN`:
+
+| Method + path | Action | Required role |
+|---|---|---|
+| `GET /api/v1/recipes`, `GET /api/v1/recipes/{id}` | read | `USER` |
+| `POST /api/v1/recipes` | create | `ADMIN` |
+| `GET /api/v1/ingredients`, `GET /api/v1/ingredients/{id}` | read | `USER` |
+| `POST /api/v1/ingredients` | create | `ADMIN` |
+| `DELETE /api/v1/ingredients/{id}` | delete | `ADMIN` |
+
+Since the single user holds both roles, it can exercise every endpoint; the annotations
+document and enforce the intended privilege for each action.
+
+### SQL injection safety
+
+The service is **not vulnerable to SQL injection** because no user input is ever
+concatenated into SQL — every value is passed as a bound parameter:
+
+- **Derived queries.** `RecipeRepository` and `IngredientRepository` are Spring Data JDBC
+  repositories; their query methods (`findByPublicId`, `findByType`, `findByNameIn`, …) are
+  translated to parameterized statements by Spring Data. No SQL string is authored by hand.
+- **Dynamic search.** `RecipeSearchRepository` is the only place that builds SQL manually,
+  for the multi-filter recipe search. It uses `NamedParameterJdbcTemplate` with a
+  `MapSqlParameterSource`, and **every user-supplied value is a bound named parameter**
+  (`:servings`, `:includeNames`, `:excludeNames`, `:instructionsContains`, `:limit`,
+  `:offset`, …). The `String.formatted(where)` templating only stitches in the repository's
+  own **static predicate string literals**, never user input, and the one computed
+  parameter *name* (`"diet_" + flag.name()`) is derived from the `DietaryFlag` **enum**, not
+  from attacker-controlled text. Because values reach the driver only as bind parameters,
+  they cannot break out of their placeholder and alter the query structure.
+
 ## Running locally
 
 A PostgreSQL instance is provided via Docker Compose (`compose.yaml`) and started
