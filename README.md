@@ -362,3 +362,6 @@ If you use a non-default Colima profile, confirm the socket path with
   JDBC `@Version`), return `version` on read, require it on update, and map a
   mismatch to `409 Conflict` (`problem+json`) so the client re-reads and retries.
   Ingredients have no update API, so they stay out of scope.
+
+- **Inspect and improve DB index.** Already added one index in the liquibase that should be useful for the filter API but need to investigate
+  possibility for other indexes
