@@ -23,7 +23,7 @@ import org.springframework.security.web.SecurityFilterChain;
  *
  * <p>Per-endpoint authorization is expressed with {@code @PreAuthorize} on the controller
  * methods, enabled by {@link EnableMethodSecurity}: reads require {@code USER}, writes
- * ({@code POST}/{@code DELETE}) require {@code ADMIN}.
+ * ({@code POST}/{@code PUT}/{@code DELETE}) require {@code ADMIN}.
  */
 @Configuration
 @EnableWebSecurity

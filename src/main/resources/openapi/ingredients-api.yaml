@@ -166,7 +166,12 @@ paths:
       tags: [Ingredients]
       operationId: deleteIngredient
       summary: Delete an ingredient by id
-      description: '**Required role:** `ADMIN`.'
+      description: >-
+        **Required role:** `ADMIN`.
+
+
+        An ingredient that is still used by one or more recipes cannot be
+        deleted; the API returns `409 Conflict`.
       responses:
         '204':
           description: The ingredient was deleted (no content).
@@ -176,6 +181,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
 components:
   securitySchemes:
@@ -273,7 +280,10 @@ components:
             detail: No ingredient found with id 018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1.
             instance: /api/v1/ingredients/018f7a1c-9b2e-7c31-8a6d-3f21c0a4e5b1
     Conflict:
-      description: An ingredient with the same name already exists.
+      description: >-
+        The request conflicts with the current state of the catalog: an
+        ingredient with the same name already exists, or the ingredient is
+        still used by one or more recipes and cannot be deleted.
       content:
         application/problem+json:
           schema:

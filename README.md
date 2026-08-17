@@ -93,9 +93,10 @@ above can be introduced then.
 ## Recipes API
 
 The Recipes API (`recipes-api.yaml`) supports creating a recipe, fetching one by its
-opaque UUID, and listing recipes with pagination and AND-combined filters. It mirrors the
-Ingredients slice: a generated `RecipesApi` interface implemented by a hand-written
-`RecipeController` → `RecipeService` → Spring Data JDBC.
+opaque UUID, listing recipes with pagination and AND-combined filters, fully replacing a
+recipe (`PUT`), and deleting a recipe (`DELETE` 204). It mirrors the Ingredients slice: a
+generated `RecipesApi` interface implemented by a hand-written `RecipeController` →
+`RecipeService` → Spring Data JDBC.
 
 - **Derived dietary profile.** On create, the server resolves each selected ingredient
   against the catalog (an unknown ingredient id is a `400`) and derives the six-flag
@@ -118,6 +119,10 @@ Ingredients slice: a generated `RecipesApi` interface implemented by a hand-writ
 
   The dynamic SQL lives in `RecipeSearchRepository` (built with `NamedParameterJdbcTemplate`,
   since the combination can't be a derived query method).
+- **Update / delete.** `PUT /api/v1/recipes/{id}` is a full replace of `name`, `servings`,
+  `instructions`, and the complete ingredient selection (the same payload as create). The
+  server re-derives `DietaryProfile` in the same transaction so search stays consistent.
+  `DELETE /api/v1/recipes/{id}` returns `204`; an unknown id is `404`.
 - **`vegetarian` automatically includes vegan recipes — with no special-casing.** A
   `?dietProfiles=vegetarian` query returns vegan recipes too, treating vegan as a stricter
   vegetarian. This is **not a hard-coded `vegan ⇒ vegetarian` rule**; it falls out of the
@@ -213,6 +218,8 @@ require `USER`, writes require `ADMIN`:
 |---|---|---|
 | `GET /api/v1/recipes`, `GET /api/v1/recipes/{id}` | read | `USER` |
 | `POST /api/v1/recipes` | create | `ADMIN` |
+| `PUT /api/v1/recipes/{id}` | update (full replace) | `ADMIN` |
+| `DELETE /api/v1/recipes/{id}` | delete | `ADMIN` |
 | `GET /api/v1/ingredients`, `GET /api/v1/ingredients/{id}` | read | `USER` |
 | `POST /api/v1/ingredients` | create | `ADMIN` |
 | `DELETE /api/v1/ingredients/{id}` | delete | `ADMIN` |
@@ -276,13 +283,29 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--recipe.bootstrap.enabled=true
 
 ## Tests
 
-There is a single integration test (`IngredientBootstrapIT`). Being a full
-`@SpringBootTest`, it is named `*IT` and runs under the **Failsafe** plugin in the
-`integration-test`/`verify` phases — so `mvn verify` (and `mvn install`) run it,
-while `mvn test` is reserved for unit tests (there are none yet).
+Tests are split by Maven plugin. `*Test` classes run under **Surefire** (`mvn test`);
+full `@SpringBootTest` HTTP/bootstrap suites are named `*IT` and run under **Failsafe**
+in the `integration-test`/`verify` phases, so `mvn verify` (and `mvn install`) run both.
 
-The **same test** runs against **both databases** — the choice is made by a Maven profile,
-not by the test, and the full Liquibase changelog is applied in both cases:
+**Unit tests** (`mvn test`):
+
+- `RecipeQueryParserTest` — `dietProfiles` / `ingredients` query-token parsing.
+- `DietaryProfileTest` — profile derivation (including vegan vs vegetarian), JSON, and
+  a guard that `DietaryFlag` stays in lockstep with the contract.
+- `RecipeSearchRepositoryTest` — `@SpringBootTest` against the search repository on H2
+  (always; the `postgres` profile only re-points Failsafe `*IT` classes).
+
+**Integration tests** (`mvn verify`):
+
+- `RecipeApiIT` — Recipes HTTP API: create / get / list, `PUT` full replace, `DELETE`,
+  each filter (including the assignment combinations `servings`+ingredient and
+  exclude-ingredient+`instructionsContains`), and unauthenticated `401`.
+- `IngredientApiIT` — Ingredients HTTP API: create / get / list / delete, duplicate-name
+  `409`, and deleting an ingredient still used by a recipe (`409` problem+json).
+- `IngredientBootstrapIT` — catalog seed on startup and bootstrap idempotency.
+
+The **same integration tests** run against **both databases** — the choice is made by a
+Maven profile, not by the test, and the full Liquibase changelog is applied in both cases:
 
 - **Default — in-memory H2** (PostgreSQL mode), fast and **no Docker required**:
 

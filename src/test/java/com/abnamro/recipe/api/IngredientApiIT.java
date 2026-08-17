@@ -2,6 +2,8 @@ package com.abnamro.recipe.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +22,9 @@ import com.abnamro.recipe.api.model.Ingredient;
 import com.abnamro.recipe.api.model.IngredientCreateRequest;
 import com.abnamro.recipe.api.model.IngredientPage;
 import com.abnamro.recipe.api.model.IngredientType;
+import com.abnamro.recipe.model.MeasurementUnit;
+import com.abnamro.recipe.service.RecipeService;
+import com.abnamro.recipe.service.dto.IngredientSelectionDto;
 
 /**
  * End-to-end HTTP test of the Ingredients API against the real application stack
@@ -29,6 +34,9 @@ import com.abnamro.recipe.api.model.IngredientType;
  *
  * <p>The {@code test} profile seeds the catalog on startup, so tests avoid
  * asserting absolute totals and instead use uniquely-named ingredients they create.
+ * The in-use-delete case needs a recipe as a fixture, so that recipe is created
+ * through {@link RecipeService} rather than the Recipes HTTP API (which is covered
+ * by {@code RecipeApiIT}).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -46,6 +54,9 @@ class IngredientApiIT {
     void configureAuth(TestRestTemplate template) {
         this.rest = template.withBasicAuth("recipes", "recipes-demo");
     }
+
+    @Autowired
+    private RecipeService recipeService;
 
     private static String uniqueName() {
         return "Test ingredient " + UUID.randomUUID();
@@ -173,6 +184,36 @@ class IngredientApiIT {
         assertThat(response.getBody().getContent())
                 .isNotEmpty()
                 .allMatch(i -> i.getType() == IngredientType.NUT);
+    }
+
+    /**
+     * Given an ingredient that is selected by a recipe, when it is DELETEd then the
+     * API rejects it with 409 Conflict and an {@code application/problem+json} body,
+     * and a subsequent GET still returns the ingredient — it was not removed.
+     */
+    @DisplayName("DELETE of an ingredient still used by a recipe → 409 problem+json")
+    @Test
+    void deleteIngredientInUseReturns409ProblemJson() {
+        Ingredient ingredient = rest.postForEntity(
+                        BASE, new IngredientCreateRequest(uniqueName(), IngredientType.VEGETABLE), Ingredient.class)
+                .getBody();
+        assertThat(ingredient).isNotNull();
+        recipeService.create(
+                "IT recipe " + UUID.randomUUID(),
+                2,
+                "Use the ingredient.",
+                List.of(new IngredientSelectionDto(
+                        ingredient.getId(), BigDecimal.valueOf(100), MeasurementUnit.GRAMS)));
+
+        ResponseEntity<String> response = rest.exchange(
+                BASE + "/" + ingredient.getId(), HttpMethod.DELETE, null, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+
+        ResponseEntity<Ingredient> stillThere = rest.getForEntity(BASE + "/" + ingredient.getId(), Ingredient.class);
+        assertThat(stillThere.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(stillThere.getBody().getId()).isEqualTo(ingredient.getId());
     }
 
     /**

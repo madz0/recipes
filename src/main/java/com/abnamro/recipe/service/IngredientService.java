@@ -1,6 +1,7 @@
 package com.abnamro.recipe.service;
 
 import com.abnamro.recipe.service.exception.DuplicateIngredientNameException;
+import com.abnamro.recipe.service.exception.IngredientInUseException;
 import com.abnamro.recipe.service.exception.IngredientNotFoundException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,18 +19,22 @@ import org.springframework.transaction.annotation.Transactional;
 import com.abnamro.recipe.model.Ingredient;
 import com.abnamro.recipe.model.IngredientType;
 import com.abnamro.recipe.repository.IngredientRepository;
+import com.abnamro.recipe.repository.RecipeRepository;
 
 /**
  * Application service for the shared ingredient catalog. Owns the business rules
- * behind the Ingredients API: unique names, UUID-based identity, and pagination.
+ * behind the Ingredients API: unique names, UUID-based identity, pagination, and
+ * refusing to delete an ingredient that is still used by a recipe.
  */
 @Service
 public class IngredientService {
 
     private final IngredientRepository ingredients;
+    private final RecipeRepository recipes;
 
-    public IngredientService(IngredientRepository ingredients) {
+    public IngredientService(IngredientRepository ingredients, RecipeRepository recipes) {
         this.ingredients = ingredients;
+        this.recipes = recipes;
     }
 
     /**
@@ -83,11 +88,23 @@ public class IngredientService {
         return result;
     }
 
-    /** Deletes the ingredient with the given public UUID, or throws if none exists. */
+    /**
+     * Deletes the ingredient with the given public UUID, or throws if none exists.
+     * An ingredient still used by a recipe cannot be deleted
+     * ({@link IngredientInUseException}).
+     */
     @Transactional
     public void delete(UUID publicId) {
         Ingredient existing = ingredients.findByPublicId(publicId)
                 .orElseThrow(() -> new IngredientNotFoundException(publicId));
-        ingredients.delete(existing);
+        if (recipes.countUsagesOfIngredient(existing.id()) > 0) {
+            throw new IngredientInUseException(existing.publicId(), existing.name());
+        }
+        try {
+            ingredients.delete(existing);
+        } catch (DataIntegrityViolationException e) {
+            // Lost a race against a concurrent recipe that just selected this ingredient.
+            throw new IngredientInUseException(existing.publicId(), existing.name());
+        }
     }
 }

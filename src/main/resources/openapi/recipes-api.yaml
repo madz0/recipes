@@ -486,12 +486,13 @@ components:
       description: >-
         Dietary attributes of a recipe, **derived by the server** from the
         selected ingredients — never supplied by the client. The diet flags are
-        related: `meat = !vegetarian`, and `vegan ⇒ vegetarian`.
+        related: `meat = !vegetarian`, and `vegan ⇒ vegetarian` (vegan is the
+        stricter diet).
 
-        Note: under the current `IngredientType` taxonomy there is no dairy/egg
-        category, so `vegan` is derived identically to `vegetarian` (absence of
-        any `MEAT` ingredient). Distinguishing true vegan recipes would require
-        extending the ingredient taxonomy.
+        `vegetarian` is true when the recipe uses no `MEAT` ingredient.
+        `vegan` is true when the recipe uses no `MEAT`, `DAIRY`, or `EGG`
+        ingredient. Because vegan excludes a superset of vegetarian's types,
+        every vegan recipe is also vegetarian.
       required:
         - vegetarian
         - vegan
@@ -508,8 +509,8 @@ components:
           type: boolean
           readOnly: true
           description: >-
-            True when the recipe is vegan. Derived identically to `vegetarian`
-            with the current ingredient taxonomy (see schema description).
+            True when the recipe uses no ingredient of type `MEAT`, `DAIRY`, or
+            `EGG`.
         meat:
           type: boolean
           readOnly: true

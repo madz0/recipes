@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.abnamro.recipe.service.exception.DuplicateIngredientNameException;
+import com.abnamro.recipe.service.exception.IngredientInUseException;
 import com.abnamro.recipe.service.exception.IngredientNotFoundException;
 import com.abnamro.recipe.service.exception.InvalidDietProfileException;
 import com.abnamro.recipe.service.exception.RecipeIngredientNotFoundException;
@@ -53,8 +54,8 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(DuplicateIngredientNameException.class)
-    public ProblemDetail handleConflict(DuplicateIngredientNameException ex) {
+    @ExceptionHandler({DuplicateIngredientNameException.class, IngredientInUseException.class})
+    public ProblemDetail handleConflict(RuntimeException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Conflict");
         return problem;

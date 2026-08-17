@@ -54,11 +54,14 @@ class RecipeApiIT {
     private static final String RECIPES = "/api/v1/recipes";
 
     private TestRestTemplate rest;
+    private TestRestTemplate anonymous;
 
     // Wrap the injected template with the demo credentials once, so every request in this
     // class is authenticated (the user holds ADMIN, covering the write endpoints too).
+    // Keep the unauthenticated template for the 401 case.
     @Autowired
     void configureAuth(TestRestTemplate template) {
+        this.anonymous = template;
         this.rest = template.withBasicAuth("recipes", "recipes-demo");
     }
 
@@ -609,6 +612,51 @@ class RecipeApiIT {
     }
 
     /**
+     * Assignment example: {@code servings=4} AND an included ingredient. A 4-serving
+     * recipe that uses the ingredient is returned; a 4-serving recipe that does not,
+     * and a different-servings recipe that does, are both excluded — the two filters
+     * are AND-combined.
+     */
+    @DisplayName("AND-combined filters: servings=4 and ingredients=potatoes")
+    @Test
+    void filterCombinesServingsAndIncludedIngredient() {
+        Ingredient potatoes = createIngredient(IngredientType.VEGETABLE);
+        Ingredient other = createIngredient(IngredientType.VEGETABLE);
+        UUID match = createRecipe(recipeRequest("Roast the potatoes.", potatoes.publicId())).getId();
+        UUID wrongIngredient = createRecipe(recipeRequest("Roast the other veg.", other.publicId())).getId();
+        RecipeCreateRequest twoServings = new RecipeCreateRequest(
+                "IT recipe " + UUID.randomUUID(), 2, "Mash the potatoes.",
+                List.of(selection(potatoes.publicId())));
+        UUID wrongServings = createRecipe(twoServings).getId();
+
+        List<UUID> ids = listIds("?servings=4&size=100&ingredients=" + enc(potatoes.name()));
+        assertThat(ids).contains(match).doesNotContain(wrongIngredient).doesNotContain(wrongServings);
+    }
+
+    /**
+     * Assignment example: exclude an ingredient AND {@code instructionsContains=oven}.
+     * A recipe that does not use salmon and mentions oven is returned; a salmon recipe
+     * whose instructions mention oven, and a salmon-free recipe that does not mention
+     * oven, are both excluded.
+     */
+    @DisplayName("AND-combined filters: ingredients=-salmon and instructionsContains=oven")
+    @Test
+    void filterCombinesExcludedIngredientAndInstructionsContains() {
+        Ingredient salmon = createIngredient(IngredientType.MEAT);
+        Ingredient vegetable = createIngredient(IngredientType.VEGETABLE);
+        UUID match = createRecipe(recipeRequest(
+                "Roast in the oven until golden.", vegetable.publicId())).getId();
+        UUID hasSalmon = createRecipe(recipeRequest(
+                "Bake the salmon in the oven.", salmon.publicId())).getId();
+        UUID noOven = createRecipe(recipeRequest(
+                "Steam gently on the hob.", vegetable.publicId())).getId();
+
+        List<UUID> ids = listIds(
+                "?size=100&ingredients=-" + enc(salmon.name()) + "&instructionsContains=oven");
+        assertThat(ids).contains(match).doesNotContain(hasSalmon).doesNotContain(noOven);
+    }
+
+    /**
      * Given a page {@code size} above the allowed maximum, when the list is
      * requested then the API rejects it with 400 Bad Request and an
      * {@code application/problem+json} error body.
@@ -620,6 +668,21 @@ class RecipeApiIT {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    // --- security ----------------------------------------------------------
+
+    /**
+     * Given no HTTP Basic credentials, when the recipes list is requested then the
+     * API rejects it with 401 Unauthorized (security is enforced over HTTP, not only
+     * in configuration).
+     */
+    @DisplayName("Unauthenticated GET list → 401")
+    @Test
+    void unauthenticatedListReturns401() {
+        ResponseEntity<String> response = anonymous.getForEntity(RECIPES, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     private static String enc(String value) {
